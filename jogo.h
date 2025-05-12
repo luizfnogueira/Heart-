@@ -18,7 +18,7 @@
 #define PONTOS_POR_FRAME 0.5f  // Aumentado para pontuação mais rápida
 
 // Constantes para a API Gemini
-#define GEMINI_API_URL "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+// Removido GEMINI_API_URL para evitar colisão com a definição nas constantes de IA
 #define EMAIL_CONTATO "tcq@cesar.school"
 
 // Constantes de obstáculos - aumentados para maior dificuldade
@@ -35,8 +35,11 @@
 #define MAX_PADROES_ATAQUE 5
 #define MAX_PROJETEIS 50
 
-// Constantes para IA
-#define GEMINI_API_URL "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+// Constantes para IA - Múltiplas URLs para tentativas
+#define GEMINI_API_URL_V1 "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+#define GEMINI_API_URL_V2 "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent"
+#define GEMINI_API_URL_V3 "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent"
+#define GEMINI_API_URL_V4 "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent"
 #define EMAIL_CONTATO "tcq@cesar.school"
 
 // Constantes para números de dano

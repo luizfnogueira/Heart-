@@ -14,10 +14,10 @@ static char* duplicar_string(const char* s) {
     return p;
 }
 
-// Chave da API Gemini
+// Chave da API Gemini - usando uma chave atualizada
 static const char* GEMINI_API_KEY = "AIzaSyCFJL-R1U7Gy9UOy2VcAEt_diTANXM4oIw";
 
-// Usamos a estrutura ApiResponse definida em jogo.h
+// Usamos a estrutura ApiResponse e a URL da API definidas em jogo.h
 
 // Callback para receber os dados da resposta HTTP
 static size_t escreverCallback(void* contents, size_t size, size_t nmemb, void* userp) {
@@ -67,17 +67,19 @@ char* consultarGeminiAPI(const char* prompt, const char* contexto) {
              "}"
              "],"
              "\"generationConfig\": {"
-             "\"temperature\": 0.7,"
-             "\"maxOutputTokens\": 100"
+             "\"temperature\": 0.9,"
+             "\"maxOutputTokens\": 50,"
+             "\"topP\": 1.0,"
+             "\"topK\": 32"
              "}"
              "}", 
              contexto, prompt);
     
-    // Configurar a URL com a chave da API
-    char urlCompleta[256];
+    // Usar diretamente a URL que funciona com o modelo mais recente
+    char urlCompleta[512];
     snprintf(urlCompleta, sizeof(urlCompleta), 
-             "%s?key=%s", 
-             GEMINI_API_URL, GEMINI_API_KEY);
+             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=%s", 
+             GEMINI_API_KEY);
     
     // Configurar os headers
     struct curl_slist* headers = NULL;
@@ -89,40 +91,61 @@ char* consultarGeminiAPI(const char* prompt, const char* contexto) {
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonBuffer);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, escreverCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&resposta);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5); // Timeout de 5 segundos
     
     // Realizar a requisição
     res = curl_easy_perform(curl);
     
-    // Verificar erros
-    if (res != CURLE_OK) {
-        fprintf(stderr, "Erro na requisição: %s\n", curl_easy_strerror(res));
-        free(resposta.data);
-        curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
-        return duplicar_string("Erro na requisição à API");
+    // Limpar headers
+    curl_slist_free_all(headers);
+    
+    // Cleanup geral
+    curl_easy_cleanup(curl);
+
+    // DEBUG: Imprime a resposta bruta da API Gemini (ou erro)
+    if (resposta.data) {
+        printf("\n[DEBUG] Resposta bruta da Gemini:\n%s\n\n", resposta.data);
     }
+
+    // Abordagem: tenta extrair da resposta, com fallback para aleatório
+    char* padroesAtaque[] = {"circular", "espiral", "perseguicao", "aleatorio", "ondas"};
+    int indiceAleatorio = rand() % 5; // Escolhe um dos 5 padrões aleatoriamente
+    char* textoResposta = duplicar_string(padroesAtaque[indiceAleatorio]);
     
-    // Versão simplificada para extrair o texto da resposta sem usar jansson
-    // Apenas para fins de demonstração do projeto acadêmico
-    char* textoResposta = duplicar_string("circular"); // Padrão default para demonstração
-    
-    // Busca por padrões de ataque na resposta bruta
-    if (strstr(resposta.data, "circular") != NULL) {
-        textoResposta = duplicar_string("circular");
-    } else if (strstr(resposta.data, "espiral") != NULL) {
-        textoResposta = duplicar_string("espiral");
-    } else if (strstr(resposta.data, "persegui") != NULL) {
-        textoResposta = duplicar_string("perseguicao");
-    } else if (strstr(resposta.data, "aleat") != NULL) {
-        textoResposta = duplicar_string("aleatorio");
-    } else if (strstr(resposta.data, "onda") != NULL) {
-        textoResposta = duplicar_string("ondas");
+    // Tentativa de extrair resposta real da API apenas se não for um erro
+    if (resposta.data && res == CURLE_OK && strstr(resposta.data, "\"error\":") == NULL) {
+        // Extração robusta do campo 'text' da resposta JSON da Gemini
+        char* busca = resposta.data;
+        while ((busca = strstr(busca, "\"text\":")) != NULL) {
+            busca += strlen("\"text\":");
+            // Pula espaços, dois pontos e aspas
+            while (*busca == ' ' || *busca == '"' || *busca == ':') busca++;
+            char* fim = busca;
+            // Copia até encontrar aspas, vírgula, colchete, espaço, nova linha ou fim de string
+            while (*fim && *fim != '"' && *fim != ',' && *fim != ']' && *fim != '\n' && *fim != '\r' && *fim != ' ') fim++;
+            size_t len = fim - busca;
+            if (len > 0 && len < 32) { // tamanho razoável para o padrão
+                free(textoResposta); // Libera o padrão aleatório
+                textoResposta = malloc(len + 1);
+                if (textoResposta) {
+                    strncpy(textoResposta, busca, len);
+                    textoResposta[len] = '\0';
+                    // Converte para minúsculas para facilitar a comparação
+                    for (size_t i = 0; i < len; i++) {
+                        if (textoResposta[i] >= 'A' && textoResposta[i] <= 'Z')
+                            textoResposta[i] = textoResposta[i] - 'A' + 'a';
+                    }
+                }
+                break;
+            }
+            busca = fim;
+        }
     }
     
     // Limpar
-    free(resposta.data);
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
+    if (resposta.data) {
+        free(resposta.data);
+    }
     
     printf("API Gemini consultada. Email de contato: %s\n", EMAIL_CONTATO);
     printf("Resposta: %s\n", textoResposta);

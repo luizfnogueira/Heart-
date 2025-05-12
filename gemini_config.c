@@ -123,7 +123,6 @@ void exibirInformacoesProjetoAcademico(void) {
     printf("\nReferências bibliográficas:\n");
     printf("- Raylib Documentation: https://www.raylib.com/\n");
     printf("- Google Gemini API: https://ai.google.dev/docs/gemini_api\n");
-    printf("- Cuphead Game Design: https://cuphead.fandom.com/\n");
     
     printf("\nParticipação na Mostra TechDesign: Sim\n");
     printf("\n=============================\n");
