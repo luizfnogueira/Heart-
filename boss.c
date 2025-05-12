@@ -173,6 +173,9 @@ void inicializarBosses(void) {
         // Inicializa os projéteis
         for (int j = 0; j < MAX_PROJETEIS; j++) {
             bosses[i].projeteis[j].ativo = false;
+            bosses[i].projeteis[j].usaSprite = false;
+            bosses[i].projeteis[j].rotacao = 0.0f;
+            bosses[i].projeteis[j].escala = 1.0f;
         }
         
         // Define se o boss é controlado por IA (todos são, neste caso)
@@ -463,6 +466,9 @@ void executarAtaqueBoss(Boss* boss) {
 
 // Adiciona um projétil ao boss
 void adicionarProjetil(Boss* boss, Vector2 direcao, float velocidade, float raio, Color cor, float dano) {
+    extern Texture2D texturaProjetil;
+    extern Texture2D texturaInimigos[5];
+    
     for (int i = 0; i < MAX_PROJETEIS; i++) {
         if (!boss->projeteis[i].ativo) {
             boss->projeteis[i].posicao = boss->posicao;
@@ -472,6 +478,29 @@ void adicionarProjetil(Boss* boss, Vector2 direcao, float velocidade, float raio
             boss->projeteis[i].cor = cor;
             boss->projeteis[i].ativo = true;
             boss->projeteis[i].dano = dano;
+            boss->projeteis[i].rotacao = atan2f(direcao.y, direcao.x) * RAD2DEG;
+            boss->projeteis[i].escala = 0.5f + (raio / 10.0f); // Escala baseada no raio
+            
+            // Decide se vai usar sprite baseado na fase do boss e aleatoriedade
+            if (boss->fase >= 2 && GetRandomValue(0, 100) < 50) {
+                boss->projeteis[i].usaSprite = true;
+                
+                // Em fases mais altas, usa sprites mais agressivos
+                if (boss->fase == 3) {
+                    // Fase 3: usa principalmente ATTACK e FLYING
+                    int index = GetRandomValue(0, 10) < 7 ? 0 : 2; // 70% chance de ATTACK, 30% de FLYING
+                    boss->projeteis[i].textura = texturaInimigos[index];
+                } else {
+                    // Fase 2: varia mais
+                    int index = GetRandomValue(0, 4); // ATTACK, DEATH, FLYING, HURT, IDLE
+                    boss->projeteis[i].textura = texturaInimigos[index];
+                }
+            } else {
+                // Usa texturaProjetil ou círculo simples
+                boss->projeteis[i].usaSprite = texturaProjetil.id != 0 && GetRandomValue(0, 100) < 70;
+                boss->projeteis[i].textura = texturaProjetil;
+            }
+            
             break;
         }
     }
@@ -781,23 +810,70 @@ void desenharBosses(void) {
 
 // Desenha os projéteis de todos os bosses
 void desenharProjeteis(void) {
+    float tempo = GetTime();
+    
     for (int i = 0; i < MAX_BOSSES; i++) {
         if (bosses[i].ativo) {
             for (int j = 0; j < MAX_PROJETEIS; j++) {
                 if (bosses[i].projeteis[j].ativo) {
-                    // Desenha o projétil
-                    DrawCircleV(
-                        bosses[i].projeteis[j].posicao,
-                        bosses[i].projeteis[j].raio,
-                        bosses[i].projeteis[j].cor
-                    );
-                    
-                    // Adiciona um efeito de brilho
-                    DrawCircleV(
-                        bosses[i].projeteis[j].posicao,
-                        bosses[i].projeteis[j].raio * 0.6f,
-                        (Color){ 255, 255, 255, 200 }
-                    );
+                    if (bosses[i].projeteis[j].usaSprite && bosses[i].projeteis[j].textura.id != 0) {
+                        // Desenha o projétil usando sprite
+                        float escala = bosses[i].projeteis[j].escala; 
+                        
+                        // Calcula a origem para rotação no centro do sprite
+                        Vector2 origem = {
+                            bosses[i].projeteis[j].textura.width / 2.0f, 
+                            bosses[i].projeteis[j].textura.height / 2.0f
+                        };
+                        
+                        // Pulsação sutil
+                        float pulse = 1.0f + 0.1f * sinf(tempo * 5.0f + j);
+                        
+                        // Rotação para apontar na direção do movimento
+                        float rotacao = bosses[i].projeteis[j].rotacao;
+                        
+                        // Desenha o sprite do projétil com efeito de cor apropriado
+                        DrawTexturePro(
+                            bosses[i].projeteis[j].textura,
+                            (Rectangle){ 0, 0, bosses[i].projeteis[j].textura.width, bosses[i].projeteis[j].textura.height },
+                            (Rectangle){ 
+                                bosses[i].projeteis[j].posicao.x, 
+                                bosses[i].projeteis[j].posicao.y, 
+                                bosses[i].projeteis[j].textura.width * escala * pulse, 
+                                bosses[i].projeteis[j].textura.height * escala * pulse 
+                            },
+                            origem,
+                            rotacao,
+                            bosses[i].projeteis[j].cor
+                        );
+                        
+                        // Adiciona um efeito de aura
+                        if (GetRandomValue(0, 10) < 3) {
+                            Color corAura = bosses[i].projeteis[j].cor;
+                            corAura.a = 100;
+                            
+                            DrawCircleV(
+                                bosses[i].projeteis[j].posicao,
+                                bosses[i].projeteis[j].raio * 1.5f,
+                                corAura
+                            );
+                        }
+                        
+                    } else {
+                        // Desenha o projétil como círculo tradicional
+                        DrawCircleV(
+                            bosses[i].projeteis[j].posicao,
+                            bosses[i].projeteis[j].raio,
+                            bosses[i].projeteis[j].cor
+                        );
+                        
+                        // Adiciona um efeito de brilho
+                        DrawCircleV(
+                            bosses[i].projeteis[j].posicao,
+                            bosses[i].projeteis[j].raio * 0.6f,
+                            (Color){ 255, 255, 255, 200 }
+                        );
+                    }
                 }
             }
         }

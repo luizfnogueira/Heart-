@@ -47,8 +47,12 @@ static Obstaculo obstaculosRoxos[MAX_OBSTACULOS_ROXOS];
 static Obstaculo obstaculosAmarelos[MAX_OBSTACULOS_AMARELOS];
 
 // Texturas e recursos
-static Texture2D texturaCoracao;
-static Texture2D texturaBoss;
+// These textures need to be accessible from boss.c
+Texture2D texturaCoracao;
+Texture2D texturaBoss;
+Texture2D texturaFundo;
+Texture2D texturaProjetil;
+Texture2D texturaInimigos[5]; // Para armazenar ATTACK, DEATH, FLYING, HURT, IDLE
 
 // Implementação das funções do jogo
 
@@ -79,6 +83,19 @@ void inicializarJogo(void) {
     // Inicializa e ativa o boss da fase 1
     inicializarBosses();
     ativarBossDaFase(1);
+    
+    // Carrega a imagem de fundo
+    texturaFundo = LoadTexture("recursos/Dark Castle in the Sky.png");
+    
+    // Carrega a textura do projétil
+    texturaProjetil = LoadTexture("recursos/Sprites/projectile.png");
+    
+    // Carrega as texturas dos inimigos (usamos with_outline para maior visibilidade)
+    texturaInimigos[0] = LoadTexture("recursos/Sprites/with_outline/ATTACK.png");
+    texturaInimigos[1] = LoadTexture("recursos/Sprites/with_outline/DEATH.png");
+    texturaInimigos[2] = LoadTexture("recursos/Sprites/with_outline/FLYING.png");
+    texturaInimigos[3] = LoadTexture("recursos/Sprites/with_outline/HURT.png");
+    texturaInimigos[4] = LoadTexture("recursos/Sprites/with_outline/IDLE.png");
     
     // Cria uma imagem com um coração em pixel art mais bonito e detalhado
     Image imagemCoracao = GenImageColor(TAMANHO_CORACAO, TAMANHO_CORACAO, BLANK);
@@ -622,82 +639,46 @@ void mudarParaFase2(void) {
         obstaculosBrancos[i].ativo = false;
     }
     
-    // Cria uma imagem de boss assustador em pixel art para a fase 2
-    Image imagemBoss = GenImageColor(100, 100, BLANK);
+    // Carrega a imagem FlameDemon.png para o boss da fase 2
+    texturaBoss = LoadTexture("recursos/FlameDemon.png");
     
-    // Cores para o pixel art
-    Color corPrincipal = (Color){75, 0, 130, 255};  // Roxo escuro
-    Color corSecundaria = (Color){148, 0, 211, 255}; // Roxo mais claro
-    Color corOlhos = (Color){255, 0, 0, 255};        // Vermelho para os olhos
-    Color corBoca = (Color){0, 0, 0, 255};           // Preto para a boca
+    // Depuração: mostrar informações da textura carregada
+    printf("INFO: Textura do boss da fase 2: ID=%u, largura=%d, altura=%d\n", 
+           texturaBoss.id, texturaBoss.width, texturaBoss.height);
     
-    // Desenha o corpo principal do boss
-    for (int y = 0; y < 100; y++) {
-        for (int x = 0; x < 100; x++) {
-            // Forma básica do boss (uma forma irregular e assustadora)
-            if ((x > 20 && x < 80 && y > 10 && y < 90) || 
-                (x > 10 && x < 90 && y > 30 && y < 70)) {
-                
-                // Adiciona textura e detalhes
-                if ((x + y) % 7 == 0 || (x * y) % 13 == 0) {
-                    ImageDrawPixel(&imagemBoss, x, y, corSecundaria);
-                } else {
-                    ImageDrawPixel(&imagemBoss, x, y, corPrincipal);
+    // Se não conseguiu carregar a textura, cria uma textura de fallback
+    if (texturaBoss.id == 0) {
+        printf("AVISO: Não foi possível carregar a textura do boss da fase 2. Usando textura de fallback.\n");
+        
+        // Cria uma imagem de boss assustador em pixel art como fallback
+        Image imagemBoss = GenImageColor(100, 100, BLANK);
+        
+        // Cores para o pixel art
+        Color corPrincipal = (Color){75, 0, 130, 255};  // Roxo escuro
+        Color corSecundaria = (Color){148, 0, 211, 255}; // Roxo mais claro
+        
+        // Desenha o corpo principal do boss
+        for (int y = 0; y < 100; y++) {
+            for (int x = 0; x < 100; x++) {
+                // Forma básica do boss
+                if ((x > 20 && x < 80 && y > 10 && y < 90) || 
+                    (x > 10 && x < 90 && y > 30 && y < 70)) {
+                    
+                    // Adiciona textura e detalhes
+                    if ((x + y) % 7 == 0 || (x * y) % 13 == 0) {
+                        ImageDrawPixel(&imagemBoss, x, y, corSecundaria);
+                    } else {
+                        ImageDrawPixel(&imagemBoss, x, y, corPrincipal);
+                    }
                 }
             }
         }
+        
+        texturaBoss = LoadTextureFromImage(imagemBoss);
+        UnloadImage(imagemBoss);
+    } else {
+        printf("Textura do FlameDemon carregada com sucesso para o boss da fase 2.\n");
     }
-    
-    // Desenha olhos assustadores (grandes e vermelhos com pupilas pretas)
-    for (int y = 30; y < 50; y++) {
-        for (int x = 30; x < 45; x++) {
-            if (sqrt(pow(x - 37, 2) + pow(y - 40, 2)) < 8) {
-                ImageDrawPixel(&imagemBoss, x, y, corOlhos);
-                // Pupila
-                if (sqrt(pow(x - 37, 2) + pow(y - 40, 2)) < 3) {
-                    ImageDrawPixel(&imagemBoss, x, y, BLACK);
-                }
-            }
-        }
-    }
-    
-    for (int y = 30; y < 50; y++) {
-        for (int x = 55; x < 70; x++) {
-            if (sqrt(pow(x - 62, 2) + pow(y - 40, 2)) < 8) {
-                ImageDrawPixel(&imagemBoss, x, y, corOlhos);
-                // Pupila
-                if (sqrt(pow(x - 62, 2) + pow(y - 40, 2)) < 3) {
-                    ImageDrawPixel(&imagemBoss, x, y, BLACK);
-                }
-            }
-        }
-    }
-    
-    // Desenha boca assustadora (cheia de dentes afiados)
-    for (int y = 60; y < 80; y++) {
-        for (int x = 35; x < 65; x++) {
-            if (y > 60 && y < 75 && x > 35 && x < 65) {
-                if (y % 5 == 0 || x % 5 == 0) {
-                    // Dentes afiados
-                    ImageDrawPixel(&imagemBoss, x, y, WHITE);
-                } else {
-                    // Interior da boca
-                    ImageDrawPixel(&imagemBoss, x, y, corBoca);
-                }
-            }
-        }
-    }
-    
-    // Adiciona detalhes assustadores (chifres, espinhos, etc.)
-    for (int i = 0; i < 20; i++) {
-        for (int j = 0; j < i/2; j++) {
-            ImageDrawPixel(&imagemBoss, 40 + i, 10 - j, corSecundaria);
-            ImageDrawPixel(&imagemBoss, 60 - i, 10 - j, corSecundaria);
-        }
-    }
-    
-    texturaBoss = LoadTextureFromImage(imagemBoss);
-    UnloadImage(imagemBoss);
 }
 
 // Muda para a fase 3
@@ -716,16 +697,27 @@ void mudarParaFase3(void) {
     // Atualiza a textura do boss para a fase 3
     UnloadTexture(texturaBoss);
     
-    // Cria uma imagem de boss final ainda mais assustador em pixel art
-    Image imagemBoss = GenImageColor(120, 120, BLANK);
+    // Carrega a imagem FlameDemon Evolved.png para o boss da fase 3
+    texturaBoss = LoadTexture("recursos/FlameDemon Evolved.png");
     
-    // Cores para o pixel art
-    Color corPrincipal = (Color){139, 0, 0, 255};    // Vermelho escuro (sangue seco)
-    Color corSecundaria = (Color){220, 20, 60, 255};  // Vermelho mais vivo
-    Color corDetalhes = (Color){25, 25, 25, 255};     // Quase preto para sombras
-    Color corOlhos = (Color){255, 255, 0, 255};       // Amarelo brilhante para os olhos
+    // Depuração: mostrar informações da textura carregada
+    printf("INFO: Textura do boss da fase 3: ID=%u, largura=%d, altura=%d\n", 
+           texturaBoss.id, texturaBoss.width, texturaBoss.height);
     
-    // Desenha o corpo principal do boss (forma irregular e mais complexa)
+    // Se não conseguiu carregar a textura, cria uma textura de fallback
+    if (texturaBoss.id == 0) {
+        printf("AVISO: Não foi possível carregar a textura do boss da fase 3. Usando textura de fallback.\n");
+        
+        // Cria uma imagem de boss final ainda mais assustador em pixel art
+        Image imagemBoss = GenImageColor(120, 120, BLANK);
+        
+        // Cores para o pixel art
+        Color corPrincipal = (Color){139, 0, 0, 255};    // Vermelho escuro (sangue seco)
+        Color corSecundaria = (Color){220, 20, 60, 255};  // Vermelho mais vivo
+        Color corDetalhes = (Color){25, 25, 25, 255};     // Quase preto para sombras
+        Color corOlhos = (Color){255, 255, 0, 255};       // Amarelo brilhante para os olhos
+        
+        // Desenha o corpo principal do boss (forma irregular e mais complexa)
     for (int y = 0; y < 120; y++) {
         for (int x = 0; x < 120; x++) {
             // Forma básica do boss (uma forma irregular e muito assustadora)
@@ -815,6 +807,7 @@ void mudarParaFase3(void) {
     
     texturaBoss = LoadTextureFromImage(imagemBoss);
     UnloadImage(imagemBoss);
+    }
 }
 
 // Função para desenhar o jogo
@@ -831,8 +824,21 @@ void desenharJogo(void) {
         default: corFundo = (Color){0, 0, 0, 255}; break;    // Preto
     }
     
-    // Desenha a área de jogo com gradiente baseado na fase
-    DrawRectangle(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, corFundo);
+    // Desenha a imagem de fundo em vez de um retângulo de cor sólida
+    if (texturaFundo.id > 0) {
+        // Desenha a imagem de fundo esticada para caber na área do jogo
+        DrawTexturePro(
+            texturaFundo,
+            (Rectangle){ 0, 0, texturaFundo.width, texturaFundo.height },
+            (Rectangle){ AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA },
+            (Vector2){ 0, 0 },
+            0.0f,
+            WHITE
+        );
+    } else {
+        // Caso a textura não seja carregada, usa o retângulo colorido como fallback
+        DrawRectangle(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, corFundo);
+    }
     
     // Efeito visual de dano/cura
     if (efeitoDanoTempo > 0.0f) {
@@ -2174,6 +2180,16 @@ void finalizarJogo(void) {
     if (faseAtual >= 2) {
         UnloadTexture(texturaBoss);
     }
+    // Descarrega a textura de fundo
+    UnloadTexture(texturaFundo);
+    
+    // Descarrega a textura do projétil
+    UnloadTexture(texturaProjetil);
+    
+    // Descarrega as texturas dos inimigos
+    for (int i = 0; i < 5; i++) {
+        UnloadTexture(texturaInimigos[i]);
+    }
 }
 
 // Initialize damage numbers
@@ -2267,4 +2283,20 @@ void desenharNumerosDano(void) {
             DrawText(texto, numerosDano[i].posicao.x, numerosDano[i].posicao.y, size, color);
         }
     }
+}
+
+// Functions desenharBosses and desenharProjeteis are implemented in boss.c
+
+// Declare a global array reference to bosses 
+extern Boss bosses[MAX_BOSSES];
+
+// Desenhar a área de jogo (contorno e fundo)
+void desenharAreaJogo(void) {
+    // Desenha o fundo da área de jogo
+    DrawRectangle(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, 
+                 (Color){20, 20, 30, 255});
+    
+    // Desenha o contorno da área de jogo
+    DrawRectangleLines(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, 
+                      WHITE);
 }

@@ -22,6 +22,9 @@
 #define ALTURA_TELA 600
 #define TITULO_JOGO "Heart!"
 
+// Definição global da música para ser acessível na finalização
+Music backgroundMusic;
+
 // Função principal
 int main(void) {
     // Inicialização do Raylib
@@ -32,8 +35,13 @@ int main(void) {
     InitAudioDevice();
     
     // Carregamento de recursos
-    Music musicaFundo = LoadMusicStream("recursos/background_music.mp3");
-    SetMusicVolume(musicaFundo, 0.5f);
+    backgroundMusic = LoadMusicStream("recursos/Condemned Tower - Castlevania Dawn of Sorrow OST.mp3");
+    if (backgroundMusic.frameCount == 0) { // Verifica se a música foi carregada
+        TraceLog(LOG_WARNING, "Falha ao carregar a música de fundo.");
+    } else {
+        PlayMusicStream(backgroundMusic);
+        SetMusicVolume(backgroundMusic, 0.5f); // Ajuste o volume conforme necessário (0.0 a 1.0)
+    }
     
     // Inicialização de variáveis do jogo
     int telaAtual = TELA_MENU;
@@ -61,14 +69,16 @@ int main(void) {
     // Loop principal do jogo
     while (!WindowShouldClose()) {
         // Atualização
-        UpdateMusicStream(musicaFundo);
+        if (IsMusicStreamPlaying(backgroundMusic)) {
+            UpdateMusicStream(backgroundMusic);
+        }
         
         // Lógica baseada na tela atual
         switch (telaAtual) {
             case TELA_MENU:
                 telaAtual = atualizarMenu();
                 if (telaAtual == TELA_JOGO) {
-                    PlayMusicStream(musicaFundo);
+                    PlayMusicStream(backgroundMusic);
                     inicializarJogo();
                 }
                 break;
@@ -94,10 +104,10 @@ int main(void) {
                 break;
                 
             case TELA_GAMEOVER:
-                StopMusicStream(musicaFundo);
+                StopMusicStream(backgroundMusic);
                 telaAtual = atualizarTelaGameOver(listaPontuacoes);
                 if (telaAtual == TELA_JOGO) {
-                    PlayMusicStream(musicaFundo);
+                    PlayMusicStream(backgroundMusic);
                     inicializarJogo();
                 }
                 break;
@@ -141,7 +151,7 @@ int main(void) {
     }
     
     // Descarregamento de recursos
-    UnloadMusicStream(musicaFundo);
+    UnloadMusicStream(backgroundMusic);
     liberarListaPontuacao(listaPontuacoes);
     
     // Limpeza da biblioteca CURL

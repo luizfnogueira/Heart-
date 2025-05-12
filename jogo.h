@@ -40,6 +40,7 @@
 #define GEMINI_API_URL_V2 "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent"
 #define GEMINI_API_URL_V3 "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent"
 #define GEMINI_API_URL_V4 "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent"
+
 #define EMAIL_CONTATO "tcq@cesar.school"
 
 // Constantes para números de dano
@@ -84,6 +85,10 @@ typedef struct {
     Color cor;
     bool ativo;
     float dano;
+    Texture2D textura;  // Textura do projétil
+    bool usaSprite;     // Indica se deve usar sprite em vez de círculo
+    float rotacao;      // Rotação do sprite
+    float escala;       // Escala do sprite
 } Projetil;
 
 // Função para verificar colisão de projétil
