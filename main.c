@@ -20,7 +20,7 @@
 // Definições de constantes
 #define LARGURA_TELA 800
 #define ALTURA_TELA 600
-#define TITULO_JOGO "Heart - Jogo de Desviar de Obstáculos"
+#define TITULO_JOGO "Heart!"
 
 // Função principal
 int main(void) {
@@ -75,6 +75,8 @@ int main(void) {
                 
             case TELA_JOGO:
                 if (!atualizarJogo()) {
+                    // O jogador morreu, salva a pontuação atual e muda para a tela de game over
+                    definirPontuacaoFinal((int)pontuacao);
                     telaAtual = TELA_GAMEOVER;
                 }
                 break;

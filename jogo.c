@@ -27,6 +27,14 @@ static bool modoChefao = false;
 static int bossAtual = 0;
 static float velocidadeBase = 2.5f;  // Velocidade base dos obstáculos
 static float velocidadeCoracao = VELOCIDADE_CORACAO;  // Velocidade do coração
+
+// Variáveis para o efeito visual de dano
+float efeitoDanoTempo = 0.0f;  // Removed 'static' to make it accessible
+float ultimoDano = 0.0f;       // Removed 'static' to make it accessible
+static float vidaAnterior = 200.0f;
+
+// Array de números de dano flutuantes
+static NumeroDano numerosDano[MAX_NUMEROS_DANO];
 // Texturas e sons (comentados para evitar warnings)
 // static Texture2D texturasFundo[3];
 // static Sound somDano, somPontos, somBoss, somGameOver, somVitoria;
@@ -61,6 +69,9 @@ void inicializarJogo(void) {
     
     // Inicializa obstáculos
     inicializarObstaculos();
+    
+    // Inicializa números de dano
+    inicializarNumerosDano();
     
     // Inicializa a IA
     inicializarIA();
@@ -259,11 +270,21 @@ bool atualizarJogo(void) {
     // Atualiza a fase com base na pontuação
     atualizarFase();
     
+    // Atualiza o efeito visual de dano
+    if (efeitoDanoTempo > 0.0f) {
+        efeitoDanoTempo -= GetFrameTime();
+        if (efeitoDanoTempo < 0.0f) {
+            efeitoDanoTempo = 0.0f;
+        }
+    }
+    
+    // Atualiza os números de dano
+    atualizarNumerosDano();
+    
     // Verifica se o jogador perdeu
     if (vidaCoracao <= 0) {
-        // Game Over
-        // PlaySound(somGameOver);
-        reiniciarJogo();
+        // Game Over - return false to trigger game over screen
+        return false;
     }
     
     // Teclas especiais
@@ -490,8 +511,19 @@ bool detectarColisoes(void) {
             
             if (CheckCollisionRecs(coracaoRect, obstaculoRect)) {
                 obstaculosBrancos[i].ativo = false;
+                // Guarda o valor anterior da vida
+                vidaAnterior = vidaCoracao;
+                
                 // Dano aumentado
-                vidaCoracao -= 15.0f + faseAtual * 5.0f;
+                float danoCausado = 15.0f + faseAtual * 5.0f;
+                vidaCoracao -= danoCausado;
+                
+                // Atualiza variáveis para efeito visual de dano
+                ultimoDano = vidaAnterior - vidaCoracao;
+                efeitoDanoTempo = 1.0f; // Duração do efeito em segundos
+                
+                // Cria número de dano flutuante
+                adicionarNumeroDano(danoCausado, posicaoCoracao, true);
                 
                 // Efeito visual de dano
                 for (int j = 0; j < 10; j++) {
@@ -519,8 +551,19 @@ bool detectarColisoes(void) {
             
             if (CheckCollisionRecs(coracaoRect, obstaculoRect)) {
                 obstaculosRoxos[i].ativo = false;
+                // Guarda o valor anterior da vida
+                vidaAnterior = vidaCoracao;
+                
                 // Dano severo
-                vidaCoracao -= 25.0f + faseAtual * 7.0f;
+                float danoCausado = 25.0f + faseAtual * 7.0f;
+                vidaCoracao -= danoCausado;
+                
+                // Atualiza variáveis para efeito visual de dano
+                ultimoDano = vidaAnterior - vidaCoracao;
+                efeitoDanoTempo = 1.5f; // Duração maior do efeito para dano severo
+                
+                // Cria número de dano flutuante maior e mais visível
+                adicionarNumeroDano(danoCausado, posicaoCoracao, true);
                 
                 // Efeito de desaceleração temporária do jogador
                 velocidadeCoracao *= 0.7f;
@@ -546,9 +589,20 @@ bool detectarColisoes(void) {
             
             if (CheckCollisionRecs(coracaoRect, obstaculoRect)) {
                 obstaculosAmarelos[i].ativo = false;
+                // Guarda o valor anterior da vida
+                vidaAnterior = vidaCoracao;
+                
                 // Recupera menos vida, tornando mais difícil se manter vivo
-                vidaCoracao += 10.0f;
+                float curaObtida = 10.0f;
+                vidaCoracao += curaObtida;
                 if (vidaCoracao > 200.0f) vidaCoracao = 200.0f;
+                
+                // Atualiza variáveis para efeito visual de cura
+                ultimoDano = vidaCoracao - vidaAnterior; // Valor positivo para cura
+                efeitoDanoTempo = 0.8f; // Duração do efeito de cura
+                
+                // Cria número de cura flutuante
+                adicionarNumeroDano(curaObtida, posicaoCoracao, false);
                 
                 // Bônus de pontuação
                 pontuacao += 100;
@@ -780,6 +834,91 @@ void desenharJogo(void) {
     // Desenha a área de jogo com gradiente baseado na fase
     DrawRectangle(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, corFundo);
     
+    // Efeito visual de dano/cura
+    if (efeitoDanoTempo > 0.0f) {
+        float intensidadeEfeito = efeitoDanoTempo;
+        if (intensidadeEfeito > 1.0f) intensidadeEfeito = 1.0f;
+        
+        // Determina se é dano (vermelho) ou cura (verde)
+        Color corEfeito;
+        if (ultimoDano > 0) { // É dano
+            // Vermelho para dano
+            corEfeito = (Color){
+                255, 
+                0, 
+                0, 
+                (unsigned char)(150 * intensidadeEfeito)
+            };
+            
+            // Vinheta para danos grandes (mais de 20 pontos de vida)
+            if (ultimoDano > 20.0f) {
+                // Efeito de vinheta (bordas escuras) para danos grandes
+                DrawRectangleGradientV(
+                    AREA_JOGO_X, 
+                    AREA_JOGO_Y, 
+                    AREA_JOGO_LARGURA, 
+                    AREA_JOGO_ALTURA / 4,
+                    (Color){0, 0, 0, (unsigned char)(200 * intensidadeEfeito)},
+                    (Color){0, 0, 0, 0}
+                );
+                
+                DrawRectangleGradientV(
+                    AREA_JOGO_X, 
+                    AREA_JOGO_Y + AREA_JOGO_ALTURA * 3/4, 
+                    AREA_JOGO_LARGURA, 
+                    AREA_JOGO_ALTURA / 4,
+                    (Color){0, 0, 0, 0},
+                    (Color){0, 0, 0, (unsigned char)(200 * intensidadeEfeito)}
+                );
+                
+                DrawRectangleGradientH(
+                    AREA_JOGO_X, 
+                    AREA_JOGO_Y, 
+                    AREA_JOGO_LARGURA / 4, 
+                    AREA_JOGO_ALTURA,
+                    (Color){0, 0, 0, (unsigned char)(200 * intensidadeEfeito)},
+                    (Color){0, 0, 0, 0}
+                );
+                
+                DrawRectangleGradientH(
+                    AREA_JOGO_X + AREA_JOGO_LARGURA * 3/4, 
+                    AREA_JOGO_Y, 
+                    AREA_JOGO_LARGURA / 4, 
+                    AREA_JOGO_ALTURA,
+                    (Color){0, 0, 0, 0},
+                    (Color){0, 0, 0, (unsigned char)(200 * intensidadeEfeito)}
+                );
+            }
+        } else { // É cura (ultimoDano negativo)
+            // Verde suave para cura
+            corEfeito = (Color){
+                100, 
+                255, 
+                100, 
+                (unsigned char)(120 * intensidadeEfeito)
+            };
+            
+            // Efeito de brilho para cura
+            DrawRectangleGradientV(
+                AREA_JOGO_X, 
+                AREA_JOGO_Y, 
+                AREA_JOGO_LARGURA, 
+                AREA_JOGO_ALTURA,
+                (Color){200, 255, 200, (unsigned char)(50 * intensidadeEfeito)},
+                (Color){100, 255, 100, (unsigned char)(30 * intensidadeEfeito)}
+            );
+        }
+        
+        // Desenha retângulo com a cor do efeito sobre toda a área de jogo
+        DrawRectangle(
+            AREA_JOGO_X, 
+            AREA_JOGO_Y, 
+            AREA_JOGO_LARGURA, 
+            AREA_JOGO_ALTURA, 
+            corEfeito
+        );
+    }
+    
     // Efeito de borda iluminada para a área de jogo
     Color corBorda = WHITE;
     if (modoChefao) {
@@ -819,21 +958,136 @@ void desenharJogo(void) {
     // Desenha o coração
     desenharCoracao();
     
-    // Desenha informações da fase atual
+    // Desenha os números de dano flutuantes
+    desenharNumerosDano();
+    
+    // Desenha a barra de HP na parte inferior da tela (centralizada)
+    int barraHPLargura = 200;
+    int barraHPAltura = 30;
+    int barraHPX = AREA_JOGO_X + (AREA_JOGO_LARGURA - barraHPLargura) / 2;
+    int barraHPY = AREA_JOGO_Y + AREA_JOGO_ALTURA + 15;
+    
+    // Fundo da barra com gradiente
+    DrawRectangleGradientH(
+        barraHPX, 
+        barraHPY, 
+        barraHPLargura, 
+        barraHPAltura, 
+        (Color){60, 0, 0, 220}, 
+        (Color){120, 0, 0, 220}
+    );
+    
+    // Barra de vida atual com efeito pulsante
+    float pulsacaoBarra = 1.0f + 0.05f * sinf(tempoJogo * 4.0f);
+    Color corBarraHP = (Color){220, 0, 0, 220};
+    
+    // Cores dinâmicas baseadas na quantidade de vida
+    if (vidaCoracao < 50) {
+        // Vida baixa: vermelho pulsante
+        corBarraHP.r = 220 + (unsigned char)(35 * sinf(tempoJogo * 10.0f));
+        corBarraHP.g = 0;
+        pulsacaoBarra = 1.0f + 0.1f * sinf(tempoJogo * 8.0f); // Pulsação mais rápida
+    } else if (vidaCoracao < 100) {
+        // Vida média: alaranjado
+        corBarraHP.r = 220;
+        corBarraHP.g = 100;
+    }
+    
+    DrawRectangle(
+        barraHPX, 
+        barraHPY, 
+        (int)(barraHPLargura * (vidaCoracao / 200.0f) * pulsacaoBarra), 
+        barraHPAltura, 
+        corBarraHP
+    );
+    
+    // Borda da barra com brilho
+    Color corBordaBarra = WHITE;
+    if (vidaCoracao < 50) {
+        // Borda piscante para vida baixa
+        corBordaBarra.a = 128 + (unsigned char)(127 * sinf(tempoJogo * 8.0f));
+    }
+    DrawRectangleLines(barraHPX, barraHPY, barraHPLargura, barraHPAltura, corBordaBarra);
+    
+    // Texto HP com sombra para melhor legibilidade
+    char textoHP[20];
+    sprintf(textoHP, "HP: %d/200", (int)vidaCoracao);
+    int textoHPLargura = MeasureText(textoHP, 20);
+    
+    // Sombra
+    DrawText(textoHP, barraHPX + (barraHPLargura - textoHPLargura) / 2 + 1, barraHPY + 6 + 1, 20, BLACK);
+    // Texto principal
+    DrawText(textoHP, barraHPX + (barraHPLargura - textoHPLargura) / 2, barraHPY + 6, 20, WHITE);
+    
+    // Desenha informações da fase atual em posição não sobreposta
     {
         char textoFase[50];
+        
         switch(faseAtual) {
             case 1: sprintf(textoFase, "FASE 1: LEMBRANÇAS"); break;
             case 2: sprintf(textoFase, "FASE 2: PESADELOS"); break;
             case 3: sprintf(textoFase, "FASE 3: CONFRONTO FINAL"); break;
             default: sprintf(textoFase, "FASE %d", faseAtual); break;
         }
-        DrawText(textoFase, AREA_JOGO_X + 2, AREA_JOGO_Y - 28, 20, BLACK); // Sombra
-        DrawText(textoFase, AREA_JOGO_X, AREA_JOGO_Y - 30, 20, WHITE);      // Texto principal
+        
+        // Cria um fundo escuro para o texto da fase para melhor legibilidade
+        DrawRectangle(AREA_JOGO_X, 8, MeasureText(textoFase, 20) + 10, 24, (Color){0, 0, 0, 180});
+        DrawText(textoFase, AREA_JOGO_X + 5, 10, 20, WHITE);
     }
     
-    // Desenha a pontuação e a vida
-    DrawText(TextFormat("Pontuação: %d", (int)pontuacao), AREA_JOGO_X, 10, 20, WHITE);
+    // Informações do boss (canto superior direito)
+    char textoBoss[50] = "";
+    char textoPontuacao[50];
+    
+    // Determine o texto do boss baseado na fase atual
+    if (faseAtual >= 1 && faseAtual <= 3) {
+        switch (faseAtual) {
+            case 1: sprintf(textoBoss, "Boss: Memória Dolorosa"); break;
+            case 2: sprintf(textoBoss, "Boss: Trauma Profundo"); break;
+            case 3: sprintf(textoBoss, "Boss: Emoção Caótica"); break;
+            default: textoBoss[0] = '\0';
+        }
+    }
+    
+    // Texto da pontuação
+    sprintf(textoPontuacao, "Pontuação: %d", (int)pontuacao);
+    
+    if (textoBoss[0] != '\0') {
+        int larguraBoss = MeasureText(textoBoss, 20) + 20;
+        DrawRectangle(
+            AREA_JOGO_X + AREA_JOGO_LARGURA - larguraBoss - 10,
+            AREA_JOGO_Y + 10,
+            larguraBoss,
+            30,
+            (Color){ 50, 0, 0, 180 }
+        );
+        
+        DrawText(
+            textoBoss, 
+            AREA_JOGO_X + AREA_JOGO_LARGURA - larguraBoss - 0,
+            AREA_JOGO_Y + 15, 
+            20, 
+            (Color){255, 100, 100, 255}
+        );
+    }
+    
+    // Pontuação (lado esquerdo, abaixo do HP)
+    int larguraPontuacao = MeasureText(textoPontuacao, 20) + 20;
+    DrawRectangle(
+        AREA_JOGO_X + 10,
+        AREA_JOGO_Y + 10,
+        larguraPontuacao,
+        30,
+        (Color){ 30, 30, 0, 180 }
+    );
+    
+    DrawText(
+        textoPontuacao, 
+        AREA_JOGO_X + 20, 
+        AREA_JOGO_Y + 15, 
+        20, 
+        (Color){255, 255, 0, 255}
+    );
 }
 
 // Desenha o coração vermelho com efeitos visuais sutis
@@ -940,66 +1194,137 @@ void desenharCoracao(void) {
 void desenharObstaculos(void) {
     float tempo = GetTime();
     
-    // Desenha obstáculos brancos (ossos como em Undertale)
+    // Desenha obstáculos brancos (ossos como em Undertale, com melhorias visuais)
     for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         if (obstaculosBrancos[i].ativo) {
-            // Posição e dimensões do osso
-            float comprimentoOsso = 30.0f;
-            float larguraOsso = 10.0f;
+            // Posição e dimensões do osso (aumentado e melhor proporcionado)
+            float comprimentoOsso = 40.0f;
+            float larguraOsso = 12.0f;
             float xOsso = obstaculosBrancos[i].posicao.x;
             float yOsso = obstaculosBrancos[i].posicao.y;
             
-            // Desenha o corpo do osso (retângulo branco)
+            // Tamanho das extremidades (aumentado para dar mais equilíbrio visual)
+            float raioExtremidade = larguraOsso/2 + 4.0f;
+            
+            // Cores melhoradas para dar profundidade
+            Color corOssoPrincipal = (Color){255, 255, 255, 255}; // Branco puro
+            Color corOssoInterior = (Color){240, 240, 245, 255}; // Branco levemente azulado
+            Color corSombra = (Color){200, 200, 215, 255}; // Sombra com tom azulado suave
+            Color corBrilho = (Color){255, 255, 255, 255}; // Brilho
+            
+            // Desenha SOMBRA do osso inteiro (para dar sensação de elevação)
             DrawRectangle(
+                xOsso + 3, 
+                yOsso + larguraOsso + 7, 
+                comprimentoOsso, 
+                larguraOsso/4, 
+                (Color){20, 20, 20, 100}
+            );
+            DrawCircle(
+                xOsso, 
+                yOsso + 5 + larguraOsso/2, 
+                raioExtremidade + 1, 
+                (Color){20, 20, 20, 100}
+            );
+            DrawCircle(
+                xOsso + comprimentoOsso, 
+                yOsso + 5 + larguraOsso/2, 
+                raioExtremidade + 1, 
+                (Color){20, 20, 20, 100}
+            );
+            
+            // ---- PARTE 1: EXTREMIDADES DO OSSO (forma melhorada) ----
+            
+            // Extremidade esquerda com gradiente para dar profundidade
+            DrawCircleGradient(
+                xOsso, 
+                yOsso + 5 + larguraOsso/2, 
+                raioExtremidade,
+                corOssoPrincipal,
+                corSombra
+            );
+            
+            // Extremidade direita com gradiente
+            DrawCircleGradient(
+                xOsso + comprimentoOsso, 
+                yOsso + 5 + larguraOsso/2, 
+                raioExtremidade,
+                corOssoPrincipal,
+                corSombra
+            );
+            
+            // Detalhes nas extremidades (linhas cruzadas como em ossos reais)
+            Color corDetalhe = (Color){220, 220, 220, 150};
+            float metadeRaio = raioExtremidade * 0.6f;
+            
+            // Detalhes na extremidade esquerda
+            DrawLineEx(
+                (Vector2){xOsso - metadeRaio, yOsso + 5 + larguraOsso/2 - metadeRaio},
+                (Vector2){xOsso + metadeRaio, yOsso + 5 + larguraOsso/2 + metadeRaio},
+                1.5f,
+                corDetalhe
+            );
+            DrawLineEx(
+                (Vector2){xOsso - metadeRaio, yOsso + 5 + larguraOsso/2 + metadeRaio},
+                (Vector2){xOsso + metadeRaio, yOsso + 5 + larguraOsso/2 - metadeRaio},
+                1.5f,
+                corDetalhe
+            );
+            
+            // Detalhes na extremidade direita
+            DrawLineEx(
+                (Vector2){xOsso + comprimentoOsso - metadeRaio, yOsso + 5 + larguraOsso/2 - metadeRaio},
+                (Vector2){xOsso + comprimentoOsso + metadeRaio, yOsso + 5 + larguraOsso/2 + metadeRaio},
+                1.5f,
+                corDetalhe
+            );
+            DrawLineEx(
+                (Vector2){xOsso + comprimentoOsso - metadeRaio, yOsso + 5 + larguraOsso/2 + metadeRaio},
+                (Vector2){xOsso + comprimentoOsso + metadeRaio, yOsso + 5 + larguraOsso/2 - metadeRaio},
+                1.5f,
+                corDetalhe
+            );
+            
+            // ---- PARTE 2: CORPO PRINCIPAL DO OSSO (melhorado com detalhes) ----
+            
+            // Corpo principal do osso com gradiente para dar profundidade
+            DrawRectangleGradientV(
                 xOsso, 
                 yOsso + 5, 
                 comprimentoOsso, 
                 larguraOsso, 
-                WHITE
+                corOssoPrincipal,
+                corSombra
             );
             
-            // Desenha as extremidades do osso (círculos brancos nas pontas)
-            // Extremidade esquerda
-            DrawCircle(
-                xOsso, 
-                yOsso + 5 + larguraOsso/2, 
-                larguraOsso/2 + 2, 
-                WHITE
-            );
+            // Adiciona detalhes ao corpo do osso (pequenas linhas horizontais)
+            for (int j = 1; j < 4; j++) {
+                float yLinha = yOsso + 5 + (larguraOsso * j / 4);
+                DrawLineEx(
+                    (Vector2){xOsso + 4, yLinha},
+                    (Vector2){xOsso + comprimentoOsso - 4, yLinha},
+                    0.8f,
+                    corDetalhe
+                );
+            }
             
-            // Extremidade direita
-            DrawCircle(
-                xOsso + comprimentoOsso, 
-                yOsso + 5 + larguraOsso/2, 
-                larguraOsso/2 + 2, 
-                WHITE
-            );
-            
-            // Adiciona sombra para dar profundidade
-            DrawRectangle(
-                xOsso + 2, 
-                yOsso + 7, 
-                comprimentoOsso - 4, 
-                larguraOsso - 4, 
-                (Color){220, 220, 220, 255}
-            );
-            
-            // Adiciona brilho para dar efeito 3D
-            DrawRectangle(
+            // Adiciona brilho na parte superior para efeito 3D
+            DrawRectangleGradientV(
                 xOsso + 3, 
-                yOsso + 8, 
+                yOsso + 6, 
                 comprimentoOsso - 6, 
-                2, 
-                (Color){255, 255, 255, 200}
+                larguraOsso/3, 
+                corBrilho,
+                corOssoInterior
             );
             
-            // Efeito de tremor como em Undertale (movimento sutil)
-            if (GetRandomValue(0, 20) == 0) {
+            // Efeito de movimento/vibração como em Undertale (mais sutil)
+            if (GetRandomValue(0, 15) == 0) {
                 DrawCircle(
-                    xOsso + GetRandomValue(0, (int)comprimentoOsso), 
-                    yOsso + GetRandomValue(0, (int)larguraOsso) + 5, 
-                    1, 
-                    (Color){255, 255, 255, 150}
+                    xOsso + GetRandomValue(5, (int)comprimentoOsso - 5), 
+                    yOsso + GetRandomValue(5, (int)larguraOsso) + 5, 
+                    1.2f, 
+                    (Color){255, 255, 255, 180}
                 );
             }
         }
@@ -1170,73 +1495,175 @@ void desenharBarra(void) {
     } else {
         textoBoss[0] = '\0';
     }
-    // Retângulo de fundo maior para comportar os três textos
+    // Retângulo de fundo para o nome da fase (parte superior central)
+    int larguraTitulo = MeasureText(textoFase, 22) + 20;
     DrawRectangle(
-        AREA_JOGO_X + (AREA_JOGO_LARGURA - 340) / 2,
-        AREA_JOGO_Y - 90,
-        340,
-        70,
+        AREA_JOGO_X + (AREA_JOGO_LARGURA - larguraTitulo) / 2,
+        AREA_JOGO_Y - 40,
+        larguraTitulo,
+        30,
         (Color){ 20, 20, 20, 180 }
     );
+    
     // Texto da fase
     DrawText(
         textoFase,
         AREA_JOGO_X + (AREA_JOGO_LARGURA - MeasureText(textoFase, 22)) / 2,
-        AREA_JOGO_Y - 85,
+        AREA_JOGO_Y - 35,
         22,
         WHITE
     );
-    // Texto da pontuação
-    DrawText(
-        textoPontuacao, 
-        AREA_JOGO_X + (AREA_JOGO_LARGURA - MeasureText(textoPontuacao, 22)) / 2, 
-        AREA_JOGO_Y - 60, 
-        22, 
-        (Color){255, 255, 0, 255}
-    );
-    // Texto do boss
-    DrawText(
-        textoBoss, 
-        AREA_JOGO_X + (AREA_JOGO_LARGURA - MeasureText(textoBoss, 22)) / 2, 
-        AREA_JOGO_Y - 35, 
-        22, 
-        (Color){255, 100, 100, 255}
-    );
     
     // ==========================================
-    // DESENHA O HP NO CANTO SUPERIOR ESQUERDO
+    // DESENHA O HP NO CANTO INFERIOR DIREITO (VISUAL APRIMORADO)
     // ==========================================
     char textoHP[20];
     sprintf(textoHP, "HP: %d/%d", (int)vidaCoracao, (int)vidaMax);
     
-    // Retangulo de fundo para o HP
-    DrawRectangle(
-        AREA_JOGO_X + 10,
-        AREA_JOGO_Y - 40,
-        180,
-        35,
-        (Color){0, 0, 0, 200}
+    // Tamanho do retângulo para o HP
+    int larguraHP = 240;
+    int alturaHP = 55;
+    int hpX = AREA_JOGO_X + AREA_JOGO_LARGURA - larguraHP - 10;
+    int hpY = AREA_JOGO_Y + AREA_JOGO_ALTURA - 65;
+    
+    // Retângulo de fundo para o HP com gradiente
+    Color corGradiente1, corGradiente2;
+    
+    if (porcentagemVida > 0.7f) {
+        // Verde escuro gradiente para vida alta
+        corGradiente1 = (Color){0, 60, 0, 230};
+        corGradiente2 = (Color){0, 40, 0, 230};
+    } else if (porcentagemVida > 0.3f) {
+        // Amarelo escuro gradiente para vida média
+        corGradiente1 = (Color){60, 60, 0, 230};
+        corGradiente2 = (Color){40, 40, 0, 230};
+    } else {
+        // Vermelho escuro pulsando para vida baixa
+        int pulse = 40 + (int)(20 * sinf(tempo * 8.0f));
+        corGradiente1 = (Color){80, 0, 0, 230};
+        corGradiente2 = (Color){pulse, 0, 0, 230};
+    }
+    
+    // Fundo com gradiente
+    DrawRectangleGradientH(hpX, hpY, larguraHP, alturaHP, corGradiente1, corGradiente2);
+    
+    // Borda decorativa com efeito pulsante
+    Color corBorda = WHITE;
+    if (porcentagemVida < 0.3f) {
+        // Vermelho piscante para vida baixa
+        corBorda = (Color){255, 0, 0, 100 + (int)(155 * sinf(tempo * 8.0f))};
+    } else if (porcentagemVida < 0.7f) {
+        // Amarelo para vida média
+        corBorda = (Color){255, 255, 0, 180};
+    } else {
+        // Verde para vida alta
+        corBorda = (Color){0, 255, 0, 150 + (int)(50 * sinf(tempo * 2.0f))};
+    }
+    
+    DrawRectangleLines(hpX, hpY, larguraHP, alturaHP, corBorda);
+    // Borda externa decorativa
+    DrawRectangleLines(hpX-2, hpY-2, larguraHP+4, alturaHP+4, 
+        (Color){corBorda.r, corBorda.g, corBorda.b, corBorda.a/2});
+    
+    // Barra de vida dentro do retângulo
+    int larguraBarraInterna = larguraHP - 20;
+    int alturaBarraInterna = 20;
+    int barraInternaX = hpX + 10;
+    int barraInternaY = hpY + alturaHP - alturaBarraInterna - 8;
+    
+    // Fundo da barra (cinza escuro)
+    DrawRectangle(barraInternaX, barraInternaY, larguraBarraInterna, alturaBarraInterna, (Color){20, 20, 20, 255});
+    
+    // Barra de vida atual com gradiente baseado na porcentagem de vida
+    Color corBarraInicio, corBarraFim;
+    
+    if (porcentagemVida > 0.7f) {
+        // Verde para vida alta
+        corBarraInicio = (Color){100, 255, 100, 255};
+        corBarraFim = (Color){0, 200, 0, 255};
+    } else if (porcentagemVida > 0.3f) {
+        // Amarelo para vida média
+        corBarraInicio = (Color){255, 255, 100, 255};
+        corBarraFim = (Color){200, 200, 0, 255};
+    } else {
+        // Vermelho pulsando para vida baixa
+        int pulse = 100 + (int)(155 * sinf(tempo * 8.0f));
+        corBarraInicio = (Color){255, pulse, pulse, 255};
+        corBarraFim = (Color){200, 0, 0, 255};
+    }
+    
+    // Desenha a barra de vida preenchida com gradiente
+    DrawRectangleGradientH(
+        barraInternaX, 
+        barraInternaY, 
+        (int)(larguraBarraInterna * porcentagemVida), 
+        alturaBarraInterna, 
+        corBarraInicio,
+        corBarraFim
     );
     
-    // Borda do retangulo
-    DrawRectangleLines(
-        AREA_JOGO_X + 10,
-        AREA_JOGO_Y - 40,
-        180,
-        35,
-        (Color){255, 255, 255, 200 + (int)(55 * sinf(tempo * 2.0f))}
-    );
+    // Desenha marcadores de segmento na barra de HP
+    for (int i = 1; i < 10; i++) {
+        float x = barraInternaX + (larguraBarraInterna / 10.0f) * i;
+        
+        // Linha mais clara dentro da parte preenchida da barra
+        if (x <= barraInternaX + (larguraBarraInterna * porcentagemVida)) {
+            DrawLine(
+                x, barraInternaY, x, barraInternaY + alturaBarraInterna,
+                (Color){255, 255, 255, 100}
+            );
+        } 
+        // Linha mais escura dentro da parte vazia da barra
+        else {
+            DrawLine(
+                x, barraInternaY, x, barraInternaY + alturaBarraInterna,
+                (Color){100, 100, 100, 100}
+            );
+        }
+    }
+    
+    // Desenha símbolo de coração antes do texto HP
+    int tamanhoCoracao = 22;
+    int coracaoX = hpX + 10;
+    int coracaoY = hpY + 8;
+    
+    // Sombra do coração
+    DrawText("♥", coracaoX + 2, coracaoY + 2, tamanhoCoracao, (Color){0, 0, 0, 150});
+    
+    // Coração pulsando com cor baseada na vida
+    float pulsacao = 1.0f;
+    if (porcentagemVida < 0.3f) {
+        pulsacao = 1.0f + 0.3f * sinf(tempo * 8.0f);
+        DrawText("♥", coracaoX, coracaoY, tamanhoCoracao * pulsacao, corBarraInicio);
+    } else {
+        pulsacao = 1.0f + 0.1f * sinf(tempo * 3.0f);
+        DrawText("♥", coracaoX, coracaoY, tamanhoCoracao * pulsacao, corBarraInicio);
+    }
     
     // Texto do HP com efeito de tremor
-    int offsetHPX = GetRandomValue(-1, 1);
-    int offsetHPY = GetRandomValue(-1, 1);
+    int offsetHPX = 0;
+    int offsetHPY = 0;
+    if (porcentagemVida < 0.3f) {
+        offsetHPX = GetRandomValue(-2, 2);
+        offsetHPY = GetRandomValue(-2, 2);
+    }
     
+    // Sombra do texto
     DrawText(
         textoHP, 
-        AREA_JOGO_X + 30 + offsetHPX, 
-        AREA_JOGO_Y - 35 + offsetHPY, 
+        hpX + 40 + offsetHPX + 2, 
+        hpY + 10 + offsetHPY + 2, 
         25, 
-        (Color){255, 0, 0, 255}
+        BLACK
+    );
+    
+    // Texto principal
+    DrawText(
+        textoHP, 
+        hpX + 40 + offsetHPX, 
+        hpY + 10 + offsetHPY, 
+        25, 
+        (Color){255, 200 + (int)(55 * sinf(tempo * 3.0f)), 200 + (int)(55 * sinf(tempo * 3.0f)), 255}
     );
     
     // ==========================================
@@ -1279,19 +1706,46 @@ void desenharBarra(void) {
     // DESENHA A BARRA DE VIDA NA PARTE INFERIOR
     // ==========================================
     
-    // Configuração da barra de vida
-    int larguraBarra = 250; // Barra mais larga
-    int alturaBarra = 35;   // Barra mais alta
-    int barraX = AREA_JOGO_X + 100;
+    // Configuração da barra de vida aprimorada
+    int larguraBarra = 300; // Barra mais larga
+    int alturaBarra = 40;   // Barra mais alta
+    int barraX = AREA_JOGO_X + AREA_JOGO_LARGURA - larguraBarra - 100;
     int barraY = AREA_JOGO_Y + AREA_JOGO_ALTURA + 10;
     
-    // Borda da barra
+    // Fundo da barra (escuro com gradiente)
+    DrawRectangleGradientH(
+        barraX - 5, 
+        barraY - 5, 
+        larguraBarra + 10, 
+        alturaBarra + 10, 
+        (Color){40, 0, 0, 255},
+        (Color){80, 0, 0, 255}
+    );
+    
+    // Borda da barra com efeito pulsante
+    Color corBordaBarra = (Color){
+        255,
+        100 + (int)(55 * sinf(tempo * 2.0f)), 
+        100 + (int)(55 * sinf(tempo * 2.0f)),
+        255
+    };
+    
+    // Borda interna
     DrawRectangleLines(
         barraX, 
         barraY, 
         larguraBarra, 
         alturaBarra, 
-        WHITE
+        corBordaBarra
+    );
+    
+    // Borda externa
+    DrawRectangleLines(
+        barraX - 5, 
+        barraY - 5, 
+        larguraBarra + 10, 
+        alturaBarra + 10, 
+        (Color){255, 255, 255, 100 + (int)(55 * sinf(tempo * 3.0f))}
     );
     
     // Fundo da barra (vermelho escuro)
@@ -1300,28 +1754,73 @@ void desenharBarra(void) {
         barraY, 
         larguraBarra, 
         alturaBarra, 
-        (Color){100, 0, 0, 255}
+        (Color){60, 0, 0, 255}
     );
     
-    // Barra de vida atual (amarelo/laranja com efeito pulsante)
-    Color corVida = (Color){
-        255, 
-        200 + (int)(55 * sinf(tempo * 3.0f)), 
-        0, 
-        255
-    };
+    // Barra de vida atual com cor baseada na porcentagem
+    Color corVida;
+    if (porcentagemVida > 0.7f) {
+        // Verde para HP alto
+        corVida = (Color){
+            100 + (int)(55 * sinf(tempo * 3.0f)), 
+            255, 
+            100 + (int)(55 * sinf(tempo * 3.0f)), 
+            255
+        };
+    } else if (porcentagemVida > 0.3f) {
+        // Amarelo para HP médio
+        corVida = (Color){
+            255, 
+            255, 
+            0, 
+            255
+        };
+    } else {
+        // Vermelho pulsante para HP baixo
+        corVida = (Color){
+            255, 
+            100 + (int)(155 * sinf(tempo * 8.0f)), 
+            100 + (int)(155 * sinf(tempo * 8.0f)), 
+            255
+        };
+    }
     
-    DrawRectangle(
+    // Desenha a barra de vida com gradiente
+    DrawRectangleGradientH(
         barraX, 
         barraY, 
         (int)(larguraBarra * porcentagemVida), 
         alturaBarra, 
-        corVida
+        corVida,
+        (Color){corVida.r, corVida.g/2, corVida.b/2, corVida.a}
     );
     
+    // Desenha linhas de segmento na barra (visual de "blocos" de vida)
+    for (int i = 1; i < 10; i++) {
+        int x = barraX + (larguraBarra / 10) * i;
+        if (x < barraX + (int)(larguraBarra * porcentagemVida)) {
+            DrawLine(
+                x, 
+                barraY, 
+                x, 
+                barraY + alturaBarra, 
+                (Color){255, 255, 255, 80}
+            );
+        }
+    }
+    
     // Texto "HP" com efeito de tremor ao lado da barra
-    int offsetHPBarraX = GetRandomValue(-2, 2);
-    int offsetHPBarraY = GetRandomValue(-2, 2);
+    int offsetHPBarraX = 0;
+    int offsetHPBarraY = 0;
+    
+    if (porcentagemVida < 0.3f) {
+        offsetHPBarraX = GetRandomValue(-2, 2);
+        offsetHPBarraY = GetRandomValue(-2, 2);
+    }
+    
+    // Sombra do texto "HP"
+    DrawText("HP", barraX - 50 + offsetHPBarraX + 2, barraY + 5 + offsetHPBarraY + 2, 30, BLACK);
+    // Texto "HP" principal
     DrawText("HP", barraX - 50 + offsetHPBarraX, barraY + 5 + offsetHPBarraY, 30, (Color){255, 0, 0, 255});
     
     // Valor numérico da vida com efeito de pulsação
@@ -1329,8 +1828,13 @@ void desenharBarra(void) {
     sprintf(textoVida, "%d / %d", (int)vidaCoracao, (int)vidaMax);
     
     // Efeito de pulsação para o texto
-    float pulsacao = 1.0f + 0.2f * sinf(tempo * 4.0f);
-    int tamanhoTexto = 25 + (int)(5 * pulsacao);
+    float pulsacaoTexto = 1.0f;
+    if (porcentagemVida < 0.3f) {
+        pulsacaoTexto = 1.0f + 0.3f * sinf(tempo * 8.0f);
+    } else {
+        pulsacaoTexto = 1.0f + 0.1f * sinf(tempo * 3.0f);
+    }
+    int tamanhoTexto = 25 + (int)(5 * pulsacaoTexto);
     
     // Sombra do texto
     DrawText(
@@ -1341,22 +1845,22 @@ void desenharBarra(void) {
         BLACK
     );
     
-    // Texto principal com efeito de cor pulsante
+    // Texto principal com cor baseada na porcentagem de vida
     DrawText(
         textoVida, 
         barraX + larguraBarra + 10, 
         barraY + 5, 
         tamanhoTexto, 
-        (Color){255, 200 + (int)(55 * sinf(tempo * 3.0f)), 0, 255}
+        corVida
     );
     
-    // Desenha os fragmentos (pontuação) no canto inferior direito
+    // Desenha os fragmentos (pontuação) no canto inferior esquerdo
     char textoFragmentos[30];
     sprintf(textoFragmentos, "Fragmentos: %.0f", pontuacao);
     
     // Retangulo de fundo para os fragmentos
     DrawRectangle(
-        barraX + larguraBarra + 150,
+        AREA_JOGO_X + 10,
         barraY,
         250,
         35,
@@ -1365,7 +1869,7 @@ void desenharBarra(void) {
     
     // Borda do retangulo
     DrawRectangleLines(
-        barraX + larguraBarra + 150,
+        AREA_JOGO_X + 10,
         barraY,
         250,
         35,
@@ -1378,7 +1882,7 @@ void desenharBarra(void) {
     
     DrawText(
         textoFragmentos, 
-        barraX + larguraBarra + 170 + offsetFragX, 
+        AREA_JOGO_X + 30 + offsetFragX, 
         barraY + 5 + offsetFragY, 
         25, 
         (Color){255, 255, 0, 255}
@@ -1394,12 +1898,12 @@ void desenharBarra(void) {
             255
         };
         
-        DrawRectangle(AREA_JOGO_X + 100 + i, AREA_JOGO_Y + AREA_JOGO_ALTURA + 10, 1, 20, corGradiente);
+        DrawRectangle(barraX + i, AREA_JOGO_Y + AREA_JOGO_ALTURA + 10, 1, 20, corGradiente);
     }
     
     // Adiciona efeito de brilho na borda da barra
     DrawRectangleLines(
-        AREA_JOGO_X + 100, 
+        barraX, 
         AREA_JOGO_Y + AREA_JOGO_ALTURA + 10, 
         200, 
         20, 
@@ -1410,7 +1914,7 @@ void desenharBarra(void) {
     for (int i = 0; i < 5; i++) {
         if (vidaCoracao >= (i+1) * 40) {
             DrawText("♥", 
-                     AREA_JOGO_X + 110 + i * 40, 
+                     barraX + 10 + i * 40, 
                      AREA_JOGO_Y + AREA_JOGO_ALTURA + 13, 
                      15, 
                      WHITE);
@@ -1669,5 +2173,98 @@ void finalizarJogo(void) {
     UnloadTexture(texturaCoracao);
     if (faseAtual >= 2) {
         UnloadTexture(texturaBoss);
+    }
+}
+
+// Initialize damage numbers
+void inicializarNumerosDano(void) {
+    for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
+        numerosDano[i].ativo = false;
+    }
+}
+
+// Add a damage number
+void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano) {
+    // Find an inactive slot
+    for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
+        if (!numerosDano[i].ativo) {
+            numerosDano[i].posicao = posicao;
+            numerosDano[i].valor = valor;
+            numerosDano[i].tempo = 1.0f;  // 1 second lifetime
+            numerosDano[i].ativo = true;
+            numerosDano[i].ehDano = ehDano;
+            
+            // Set initial velocity (moves up)
+            numerosDano[i].velocidade.x = GetRandomValue(-50, 50) / 100.0f;
+            numerosDano[i].velocidade.y = -2.5f;
+            
+            // Set color based on damage or healing
+            if (ehDano) {
+                numerosDano[i].cor = (Color){255, 0, 0, 255};  // Red for damage
+            } else {
+                numerosDano[i].cor = (Color){0, 255, 0, 255};  // Green for healing
+            }
+            
+            break;
+        }
+    }
+}
+
+// Update damage numbers
+void atualizarNumerosDano(void) {
+    for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
+        if (numerosDano[i].ativo) {
+            // Update position
+            numerosDano[i].posicao.x += numerosDano[i].velocidade.x;
+            numerosDano[i].posicao.y += numerosDano[i].velocidade.y;
+            
+            // Slow down movement
+            numerosDano[i].velocidade.y *= 0.95f;
+            
+            // Update lifetime
+            numerosDano[i].tempo -= GetFrameTime();
+            
+            // Deactivate when time runs out
+            if (numerosDano[i].tempo <= 0) {
+                numerosDano[i].ativo = false;
+            }
+        }
+    }
+}
+
+// Draw damage numbers
+void desenharNumerosDano(void) {
+    for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
+        if (numerosDano[i].ativo) {
+            // Calculate alpha based on remaining time
+            int alpha = (int)(255 * numerosDano[i].tempo);
+            if (alpha < 0) alpha = 0;
+            if (alpha > 255) alpha = 255;
+            
+            // Set color with appropriate alpha
+            Color color = numerosDano[i].cor;
+            color.a = alpha;
+            
+            // Calculate size based on damage value and remaining time
+            float size = 20.0f;
+            if (numerosDano[i].valor > 30.0f) size = 30.0f; 
+            if (numerosDano[i].valor > 50.0f) size = 35.0f;
+            
+            // Add a size pulsation effect
+            float pulseFactor = 1.0f + 0.2f * sinf(GetTime() * 10.0f);
+            size *= pulseFactor;
+            
+            // Format text based on whether it's damage or healing
+            char texto[20];
+            if (numerosDano[i].ehDano) {
+                sprintf(texto, "-%d", (int)numerosDano[i].valor);
+            } else {
+                sprintf(texto, "+%d", (int)numerosDano[i].valor);
+            }
+            
+            // Draw text shadow for better visibility
+            DrawText(texto, numerosDano[i].posicao.x + 2, numerosDano[i].posicao.y + 2, size, BLACK);
+            DrawText(texto, numerosDano[i].posicao.x, numerosDano[i].posicao.y, size, color);
+        }
     }
 }

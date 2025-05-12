@@ -173,7 +173,7 @@ int atualizarTelaRanking(ListaPontuacao* lista) {
 }
 
 void desenharTelaRanking(ListaPontuacao* lista) {
-    DrawText("RANKING", LARGURA_TELA/2 - MeasureText("RANKING", 40)/2, 40, 40, PURPLE);
+    DrawText("💜 RANKING 💜", LARGURA_TELA/2 - MeasureText("💜 RANKING 💜", 50)/2, 30, 50, PURPLE);
     
     // Desenha a maior pontuação
     char textoMaiorPontuacao[100];
@@ -188,7 +188,8 @@ void desenharTelaRanking(ListaPontuacao* lista) {
              GOLD);
     
     // Cabeçalho da tabela
-    DrawText("Posição", 150, 150, 20, WHITE);
+    DrawRectangle(150, 145, 500, 30, DARKPURPLE);
+    DrawText("Posição", 160, 150, 20, WHITE);
     DrawText("Nome", 300, 150, 20, WHITE);
     DrawText("Pontuação", 550, 150, 20, WHITE);
     
@@ -200,10 +201,20 @@ void desenharTelaRanking(ListaPontuacao* lista) {
     int posicao = 1;
     
     while (atual != NULL && posicao <= MAX_PONTUACOES_EXIBIDAS) {
+        // Fundo alternado para melhor visualização
+        if (posicao % 2 == 0) {
+            DrawRectangle(150, 175 + posicao * 30, 500, 25, (Color){45, 45, 65, 128});
+        }
+        
         // Posição
         char textoPos[10];
         sprintf(textoPos, "%d", posicao);
-        DrawText(textoPos, 150, 180 + posicao * 30, 20, WHITE);
+        Color corPosicao = WHITE;
+        if (posicao <= 3) {
+            // Cores especiais para os 3 primeiros lugares
+            corPosicao = (posicao == 1) ? GOLD : (posicao == 2) ? LIGHTGRAY : ORANGE;
+        }
+        DrawText(textoPos, 170, 180 + posicao * 30, 20, corPosicao);
         
         // Nome
         DrawText(atual->nome, 300, 180 + posicao * 30, 20, WHITE);
@@ -219,11 +230,17 @@ void desenharTelaRanking(ListaPontuacao* lista) {
     
     // Se não houver pontuações
     if (lista->cabeca == NULL) {
+        DrawRectangle(150, 220, 500, 100, (Color){45, 45, 65, 200});
         DrawText("Nenhuma pontuação registrada ainda", 
                  LARGURA_TELA/2 - MeasureText("Nenhuma pontuação registrada ainda", 25)/2, 
                  250, 
                  25, 
                  LIGHTGRAY);
+        DrawText("Jogue para registrar seu nome aqui!", 
+                 LARGURA_TELA/2 - MeasureText("Jogue para registrar seu nome aqui!", 20)/2, 
+                 290, 
+                 20, 
+                 PURPLE);
     }
     
     DrawText("Pressione ENTER ou ESC para voltar ao menu", 

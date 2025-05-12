@@ -15,6 +15,10 @@ extern float pontuacao;
 extern int faseAtual;
 extern NivelDificuldade dificuldadeAtual;
 
+// Variáveis para efeitos visuais de dano
+extern float efeitoDanoTempo;
+extern float ultimoDano;
+
 // Array de bosses
 Boss bosses[MAX_BOSSES];
 
@@ -493,11 +497,22 @@ void atualizarProjeteis(void) {
                     
                     // Verifica colisão com o coração
                     if (verificarColisaoProjetil(posicaoCoracao, bosses[i].projeteis[j])) {
-                        vidaCoracao -= bosses[i].projeteis[j].dano;
+                        // Guarda o valor anterior da vida
+                        float vidaAnterior = vidaCoracao;
+                        
+                        float danoCausado = bosses[i].projeteis[j].dano;
+                        vidaCoracao -= danoCausado;
                         bosses[i].projeteis[j].ativo = false;
                         
-                        // Efeito visual de dano (placeholder)
-                        // Aqui seria adicionado código para criar efeito visual de dano
+                        // Atualiza variáveis para efeito visual de dano
+                        extern float efeitoDanoTempo;
+                        extern float ultimoDano;
+                        ultimoDano = vidaAnterior - vidaCoracao;
+                        efeitoDanoTempo = 1.0f; // Duração do efeito em segundos
+                        
+                        // Cria número de dano flutuante
+                        extern void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano);
+                        adicionarNumeroDano(danoCausado, posicaoCoracao, true);
                     }
                 }
             }
@@ -528,8 +543,8 @@ void desenharBosses(void) {
         if (bosses[i].ativo) {
             // Cores e efeitos baseados na fase do boss
             Color corAura;
-            Color corSecundaria;
-            float intensidadeAura, velocidadeDistorcao, intensidadePulsacao;
+            float velocidadeDistorcao, intensidadePulsacao;
+            // Removidas variáveis não utilizadas
             
             // Definimos corSecundaria como uma variável estática para ser usada em outras funções
 
@@ -542,8 +557,6 @@ void desenharBosses(void) {
                         0, 
                         150 + (int)(50 * sinf(tempo * 4.0f))
                     };
-                    corSecundaria = (Color){ 30, 0, 0, 200 };
-                    intensidadeAura = 1.2f;
                     velocidadeDistorcao = 4.0f;
                     intensidadePulsacao = 0.3f;
                     break;
@@ -555,8 +568,6 @@ void desenharBosses(void) {
                         200 + (int)(55 * sinf(tempo * 2.0f)), 
                         170 + (int)(40 * sinf(tempo * 3.5f))
                     };
-                    corSecundaria = (Color){ 0, 0, 100, 200 };
-                    intensidadeAura = 1.0f;
                     velocidadeDistorcao = 5.0f;
                     intensidadePulsacao = 0.25f;
                     break;
@@ -568,51 +579,40 @@ void desenharBosses(void) {
                         0, 
                         200 + (int)(55 * fabsf(sinf(tempo * 8.0f)))
                     };
-                    corSecundaria = (Color){ 20, 0, 0, 230 };
-                    intensidadeAura = 1.5f;
                     velocidadeDistorcao = 6.0f;
                     intensidadePulsacao = 0.4f;
                     break;
                     
                 default:
                     corAura = RED;
-                    corSecundaria = BLACK;
-                    intensidadeAura = 1.0f;
                     velocidadeDistorcao = 3.0f;
                     intensidadePulsacao = 0.2f;
             }
             
             
-            // Efeito de partículas ao redor do boss
-            for (int p = 0; p < 8; p++) {
-                float angulo = tempo * 2.0f + p * (PI/4);
-                float distancia = 30.0f + 15.0f * sinf(tempo * 3.0f + p * 0.5f);
-                float tamanho = 3.0f + 2.0f * sinf(tempo * 4.0f + p);
+            // Partículas ao redor do boss removidas para limpar o visual
+            // Mantendo apenas um pequeno indicador sutil
+            if ((int)(tempo * 4) % 8 == 0) {
+                float tamanho = 2.0f;
+                Color corParticula = corAura;
+                corParticula.a = 60; // Muito transparente
                 
                 Vector2 posParticula = {
-                    bosses[i].posicao.x + cosf(angulo) * distancia,
-                    bosses[i].posicao.y + sinf(angulo) * distancia
+                    bosses[i].posicao.x + GetRandomValue(-15, 15),
+                    bosses[i].posicao.y + GetRandomValue(-15, 15)
                 };
-                
-                // Cor da partícula baseada no boss
-                Color corParticula = corAura;
-                corParticula.a = 100 + (int)(155.0f * fabsf(sinf(tempo * 5.0f + p)));
                 
                 DrawCircleV(posParticula, tamanho, corParticula);
             }
             
-            // Aura principal com efeito de pulsação e distorção
-            float raioAuraBase = 45.0f * intensidadeAura;
-            float raioAura = raioAuraBase + 10.0f * sinf(tempo * 3.0f);
+            // Aura reduzida e mais sutil
+            float raioAuraBase = 10.0f;
+            float raioAura = raioAuraBase + 3.0f * sinf(tempo * 2.0f);
             
-            // Camadas de aura para efeito de profundidade
-            for (int c = 0; c < 3; c++) {
-                Color corCamada = corAura;
-                corCamada.a = 70 + c * 40;
-                float raio = raioAura - c * 8.0f;
-                
-                DrawCircleV(bosses[i].posicao, raio, corCamada);
-            }
+            // Apenas uma camada de aura muito sutil
+            Color corCamada = corAura;
+            corCamada.a = 40; // Transparência alta para ser mais sutil
+            DrawCircleV(bosses[i].posicao, raioAura, corCamada);
             
             // Efeito de distorção no boss
             float escalaBase = 1.0f + 0.1f * intensidadePulsacao;

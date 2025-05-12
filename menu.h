@@ -2,6 +2,7 @@
 #ifndef MENU_H
 #define MENU_H
 
+
 #include "pontuacao.h"
 
 // Definição dos tipos de tela
@@ -26,5 +27,6 @@ int atualizarTelaHistoria(void);
 void desenharTelaHistoria(void);
 int atualizarTelaGameOver(ListaPontuacao* listaPontuacoes);
 void desenharTelaGameOver(void);
+void definirPontuacaoFinal(int pontuacao);
 
 #endif // MENU_H

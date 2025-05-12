@@ -3,6 +3,7 @@
 #include "pontuacao.h"
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 // Definições de constantes
 #define LARGURA_TELA 800
@@ -44,12 +45,24 @@ int atualizarMenu(void) {
 }
 
 void desenharMenu(void) {
-    // Desenha o título do jogo
+    // Desenha o título do jogo com sombra
+    DrawText("💜 HEART! 💜", LARGURA_TELA/2 - MeasureText("💜 HEART! 💜", 60)/2 + 2, 82, 60, DARKPURPLE);
     DrawText("💜 HEART! 💜", LARGURA_TELA/2 - MeasureText("💜 HEART! 💜", 60)/2, 80, 60, RED);
     
-    // Desenha o coração animado
-    DrawText("   ♥   ", LARGURA_TELA/2 - 30, 160, 40, MAROON);
+    // Desenha o coração animado pulsante
+    static float tempo = 0.0f;
+    tempo += GetFrameTime() * 2.0f;
+    float escala = 1.0f + sinf(tempo) * 0.1f;  // Efeito pulsante
     
+    int tamanhoCoracao = (int)(40.0f * escala);
+    Color corCoracao = (Color){
+        200 + (int)(sinf(tempo) * 55.0f),  // Vermelho pulsante
+        0,
+        50 + (int)(sinf(tempo + 2.0f) * 50.0f),  // Azul variando
+        255
+    };
+    
+    DrawText("   ♥   ", LARGURA_TELA/2 - 30, 160, tamanhoCoracao, corCoracao);
     // Desenha as opções do menu
     for (int i = 0; i < OPCOES_MENU; i++) {
         Color cor = (i == opcaoSelecionada) ? MAGENTA : WHITE;
@@ -136,45 +149,52 @@ void desenharTelaHistoria(void) {
              LIGHTGRAY);
 }
 
+// Variáveis globais para compartilhamento entre funções
+char nomeJogador[50] = "";
+static int pontuacaoFinal = 0;
+static bool nomeInserido = false;
+
+// Função para definir a pontuação final quando o jogador morre
+void definirPontuacaoFinal(int pontuacao) {
+    pontuacaoFinal = pontuacao;
+    nomeInserido = false;
+    nomeJogador[0] = '\0'; // Limpa o nome para nova entrada
+}
+
 // Funções da tela de game over
 int atualizarTelaGameOver(ListaPontuacao* listaPontuacoes) {
-    static char nome[50] = "";
-    static int pontuacaoFinal = 0;
-    static bool nomeInserido = false;
-    
-    // Se o nome ainda não foi inserido, captura entrada do usuário
+      // Se o nome ainda não foi inserido, captura entrada do usuário
     if (!nomeInserido) {
         int tecla = GetCharPressed();
         
         // Verifica se alguma tecla foi pressionada
-        while (tecla > 0) {
-            // Apenas caracteres ASCII válidos
-            if ((tecla >= 32) && (tecla <= 125) && (strlen(nome) < 49)) {
-                nome[strlen(nome)] = (char)tecla;
-                nome[strlen(nome)] = '\0';
+        while (tecla > 0) {            // Apenas caracteres ASCII válidos
+            if ((tecla >= 32) && (tecla <= 125) && (strlen(nomeJogador) < 49)) {
+                int len = strlen(nomeJogador);
+                nomeJogador[len] = (char)tecla;
+                nomeJogador[len + 1] = '\0'; // Posiciona o terminador corretamente
             }
             tecla = GetCharPressed();
         }
         
         // Permite apagar caracteres
         if (IsKeyPressed(KEY_BACKSPACE)) {
-            int tamanhoNome = strlen(nome);
+            int tamanhoNome = strlen(nomeJogador);
             if (tamanhoNome > 0) {
-                nome[tamanhoNome-1] = '\0';
+                nomeJogador[tamanhoNome-1] = '\0';
             }
         }
         
         // Confirma o nome quando ENTER é pressionado
-        if (IsKeyPressed(KEY_ENTER) && (strlen(nome) > 0)) {
+        if (IsKeyPressed(KEY_ENTER) && (strlen(nomeJogador) > 0)) {
             nomeInserido = true;
-            adicionarPontuacao(listaPontuacoes, nome, pontuacaoFinal);
+            adicionarPontuacao(listaPontuacoes, nomeJogador, pontuacaoFinal);
             salvarPontuacoes(listaPontuacoes);
-        }
-    } else {
+        }    } else {
         // Após inserir o nome, aguarda ENTER para voltar ao menu
         if (IsKeyPressed(KEY_ENTER)) {
             // Reinicia as variáveis estáticas para próximo uso
-            nome[0] = '\0';
+            nomeJogador[0] = '\0';
             nomeInserido = false;
             return TELA_MENU;
         }
@@ -184,35 +204,70 @@ int atualizarTelaGameOver(ListaPontuacao* listaPontuacoes) {
 }
 
 void desenharTelaGameOver(void) {
-    DrawText("GAME OVER", LARGURA_TELA/2 - MeasureText("GAME OVER", 60)/2, 100, 60, RED);
+    static float tempo = 0.0f;
+    tempo += GetFrameTime();
+    
+    // Efeito de pulso no texto Game Over
+    float escala = 1.0f + sinf(tempo * 2.0f) * 0.05f;
+    int tamanhoFonte = (int)(60.0f * escala);
+    
+    // Efeito de sangue escorrendo
+    DrawText("GAME OVER", 
+             LARGURA_TELA/2 - MeasureText("GAME OVER", tamanhoFonte)/2, 
+             100, 
+             tamanhoFonte, 
+             (Color){200 + (int)(sinf(tempo) * 55.0f), 0, 0, 255});
+             
+    // Efeito de sangue pingando
+    for(int i = 0; i < 5; i++) {
+        float offsetY = fabsf(sinf(tempo * 0.5f + i)) * 20.0f;
+        DrawCircle(LARGURA_TELA/2 - 100 + i * 50, 
+                  180 + (int)offsetY, 
+                  3.0f, 
+                  RED);
+    }
     
     DrawText("A última centelha se apagou no vazio...", 
              LARGURA_TELA/2 - MeasureText("A última centelha se apagou no vazio...", 30)/2, 
              200, 
              30, 
              WHITE);
-    
-    DrawText("'Mesmo nas trevas, a luz pode renascer.'", 
+      DrawText("'Mesmo nas trevas, a luz pode renascer.'", 
              LARGURA_TELA/2 - MeasureText("'Mesmo nas trevas, a luz pode renascer.'", 25)/2, 
              250, 
              25, 
              LIGHTGRAY);
     
+    // Exibe a pontuação final do jogador
+    DrawText(TextFormat("Pontuação final: %d", pontuacaoFinal),
+             LARGURA_TELA/2 - MeasureText(TextFormat("Pontuação final: %d", pontuacaoFinal), 30)/2,
+             290,
+             30,
+             GOLD);
+    
     DrawText("Digite seu nome para salvar a pontuação:", 
              LARGURA_TELA/2 - MeasureText("Digite seu nome para salvar a pontuação:", 25)/2, 
-             320, 
+             330, 
              25, 
-             WHITE);
+             WHITE);    // Campo para digitação do nome com destaque
+    Color corFundo = (((int)(GetTime() * 1.5f) % 2) == 0 && !nomeInserido) ? 
+                    (Color){70, 70, 70, 255} : DARKGRAY;
+    DrawRectangle(LARGURA_TELA/2 - 150, 370, 300, 40, corFundo);
+    DrawRectangleLines(LARGURA_TELA/2 - 150, 370, 300, 40, LIGHTGRAY);
     
-    // Campo para digitação do nome
-    DrawRectangle(LARGURA_TELA/2 - 150, 360, 300, 40, DARKGRAY);
+    // Cursor piscante
+    if (!nomeInserido) {
+        int tamanhoTexto = MeasureText(nomeJogador, 20);
+        if (((int)(GetTime() * 2) % 2) == 0) {
+            DrawRectangle(LARGURA_TELA/2 - 140 + tamanhoTexto, 380, 2, 20, WHITE);
+        }
+    }
     
-    // Texto do nome sendo digitado
-    // Implementação completa na função atualizarTelaGameOver
-    
-    DrawText("Pressione ENTER para confirmar", 
+    // Desenha o nome sendo digitado
+    DrawText(nomeJogador, LARGURA_TELA/2 - 140, 380, 20, WHITE);
+      DrawText("Pressione ENTER para confirmar", 
              LARGURA_TELA/2 - MeasureText("Pressione ENTER para confirmar", 20)/2, 
-             420, 
+             430, 
              20, 
              LIGHTGRAY);
 }

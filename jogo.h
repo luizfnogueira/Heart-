@@ -39,6 +39,9 @@
 #define GEMINI_API_URL "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
 #define EMAIL_CONTATO "tcq@cesar.school"
 
+// Constantes para números de dano
+#define MAX_NUMEROS_DANO 10  // Máximo de números de dano na tela ao mesmo tempo
+
 // Níveis de dificuldade
 typedef enum {
     FACIL,
@@ -105,6 +108,17 @@ typedef struct {
     char ultimaResposta[1024]; // Última resposta da IA
 } Boss;
 
+// Estrutura para os números de dano/cura flutuantes
+typedef struct {
+    Vector2 posicao;
+    Vector2 velocidade;
+    float valor;
+    float tempo;
+    bool ativo;
+    bool ehDano; // true = dano, false = cura
+    Color cor;
+} NumeroDano;
+
 // Estrutura para armazenar dados da resposta da API
 typedef struct {
     char *data;
@@ -117,6 +131,10 @@ extern float vidaCoracao;
 extern float pontuacao;
 extern int faseAtual;
 extern NivelDificuldade dificuldadeAtual;
+
+// Variáveis para o efeito visual de dano (usadas também em boss.c)
+extern float efeitoDanoTempo;
+extern float ultimoDano;
 
 // Funções de inicialização
 void inicializarJogo(void);
@@ -160,6 +178,12 @@ void definirDificuldade(NivelDificuldade nivel);
 void ativarBossDaFase(int fase);
 void adicionarProjetil(Boss* boss, Vector2 direcao, float velocidade, float raio, Color cor, float dano);
 void executarAtaqueBoss(Boss* boss);
+
+// Funções de números de dano
+void inicializarNumerosDano(void);
+void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano);
+void atualizarNumerosDano(void);
+void desenharNumerosDano(void);
 
 // Funções de desenho
 void desenharJogo(void);
