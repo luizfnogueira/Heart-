@@ -22,7 +22,7 @@ static const char *opcoesMenu[OPCOES_MENU] = {
 
 // Funções do menu principal
 int atualizarMenu(void) {
-    // Controle de navegação do menu
+    // Navegação por teclado
     if (IsKeyPressed(KEY_DOWN)) {
         opcaoSelecionada = (opcaoSelecionada + 1) % OPCOES_MENU;
     }
@@ -30,19 +30,45 @@ int atualizarMenu(void) {
         opcaoSelecionada = (opcaoSelecionada - 1 + OPCOES_MENU) % OPCOES_MENU;
     }
 
-    // Verificação de seleção de opção
-    if (IsKeyPressed(KEY_ENTER)) {
-        switch (opcaoSelecionada) {
-            case 0: return TELA_JOGO;      // Iniciar Jogo
-            case 1: return TELA_HISTORIA;  // História
-            case 2: return TELA_CREDITOS;  // Créditos
-            case 3: return TELA_RANKING;   // Ranking
-            case 4: return TELA_SAIR;      // Sair
+    // Verifica se o mouse está sobre alguma opção
+    Vector2 mouse = GetMousePosition();
+    for (int i = 0; i < OPCOES_MENU; i++) {
+        int textoLargura = MeasureText(opcoesMenu[i], 30);
+        Rectangle areaOpcao = {
+            LARGURA_TELA/2 - textoLargura/2,
+            250 + i * 50,
+            (float)textoLargura,
+            30
+        };
+
+        if (CheckCollisionPointRec(mouse, areaOpcao)) {
+            opcaoSelecionada = i;
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                switch (i) {
+                    case 0: return TELA_JOGO;
+                    case 1: return TELA_HISTORIA;
+                    case 2: return TELA_CREDITOS;
+                    case 3: return TELA_RANKING;
+                    case 4: return TELA_SAIR;
+                }
+            }
         }
     }
-    
-    return TELA_MENU; // Permanece no menu se nenhuma opção for selecionada
+
+    // Confirmação por teclado
+    if (IsKeyPressed(KEY_ENTER)) {
+        switch (opcaoSelecionada) {
+            case 0: return TELA_JOGO;
+            case 1: return TELA_HISTORIA;
+            case 2: return TELA_CREDITOS;
+            case 3: return TELA_RANKING;
+            case 4: return TELA_SAIR;
+        }
+    }
+
+    return TELA_MENU;
 }
+
 
 void desenharMenu(void) {
     // Desenha o título do jogo com sombra
