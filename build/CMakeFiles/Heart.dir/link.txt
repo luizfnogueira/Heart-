@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/Heart.dir/main.c.o CMakeFiles/Heart.dir/menu.c.o CMakeFiles/Heart.dir/jogo.c.o CMakeFiles/Heart.dir/pontuacao.c.o -o bin/Heart  /usr/local/lib/libraylib.a -L/usr/local/lib -lraylib 
