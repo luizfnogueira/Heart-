@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include "raylib.h"
 #include <string.h>
 
 // Definições de constantes
@@ -57,6 +58,8 @@ Texture2D texturaInimigos[5]; // Para armazenar ATTACK, DEATH, FLYING, HURT, IDL
 // Implementação das funções do jogo
 
 // Inicializa o jogo
+Boss bosses[MAX_BOSSES];
+
 void inicializarJogo(void) {
     // Inicializa variáveis do jogo
     posicaoCoracao.x = AREA_JOGO_X + 50;
@@ -218,7 +221,7 @@ bool atualizarJogo(void) {
         mudarParaFase3();
     }
     
-    if (pontuacao >= 600 && faseAtual == 3) {
+    if (pontuacao >= 1000 && faseAtual == 3) {
         return false; // Jogo vencido
     }
     
@@ -317,6 +320,12 @@ bool atualizarJogo(void) {
     }
     
     return true;
+}
+
+
+void definirDificuldade(NivelDificuldade nivel) {
+    dificuldadeAtual = nivel;
+    // Você poderia ajustar estatísticas de bosses aqui
 }
 
 // Atualiza o coração
@@ -956,10 +965,12 @@ void desenharJogo(void) {
     desenharObstaculos();
     
     // Se estiver no modo chefão, desenha os projéteis e os bosses
-    if (modoChefao) {
-        desenharProjeteis();
-        desenharBosses();
-    }
+    // Desenha projéteis de bosses e bosses (se ativos)
+    atualizarBosses();      // atualiza lógica de bosses
+    atualizarProjeteis();   // atualiza lógica de projéteis
+    desenharProjeteis();    // desenha projéteis
+    desenharBosses();       // desenha sprites dos bosses ativos
+
     
     // Desenha o coração
     desenharCoracao();
@@ -2286,6 +2297,76 @@ void desenharNumerosDano(void) {
 }
 
 // Functions desenharBosses and desenharProjeteis are implemented in boss.c
+void desenharProjeteis(void) {
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        for (int j = 0; j < MAX_PROJETEIS; j++) {
+            if (!bosses[i].projeteis[j].ativo) continue;
+            if (bosses[i].projeteis[j].usaSprite) {
+                DrawTexturePro( bosses[i].projeteis[j].textura,
+                                (Rectangle){0,0, bosses[i].projeteis[j].textura.width, bosses[i].projeteis[j].textura.height},
+                                (Rectangle){ bosses[i].projeteis[j].posicao.x, bosses[i].projeteis[j].posicao.y,
+                                             bosses[i].projeteis[j].textura.width * bosses[i].projeteis[j].escala,
+                                             bosses[i].projeteis[j].textura.height * bosses[i].projeteis[j].escala },
+                                (Vector2){ bosses[i].projeteis[j].textura.width/2, bosses[i].projeteis[j].textura.height/2 },
+                                bosses[i].projeteis[j].rotacao, WHITE );
+            } else {
+                DrawCircleV(bosses[i].projeteis[j].posicao,
+                            bosses[i].projeteis[j].raio * bosses[i].projeteis[j].escala,
+                            bosses[i].projeteis[j].cor );
+            }
+        }
+    }
+}
+
+void atualizarProjeteis(void) {
+    // Percorra projéteis de cada boss e atualize posições
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        for (int j = 0; j < MAX_PROJETEIS; j++) {
+            if (!bosses[i].projeteis[j].ativo) continue;
+            // Exemplo de movimento:
+            bosses[i].projeteis[j].posicao.x += bosses[i].projeteis[j].velocidade.x;
+            bosses[i].projeteis[j].posicao.y += bosses[i].projeteis[j].velocidade.y;
+        }
+    }
+}
+
+
+void ativarBossDaFase(int fase) {
+    // Exemplo: ativa o boss daquela fase
+    if (fase >= 1 && fase <= MAX_BOSSES) bosses[fase-1].ativo = true;
+}
+
+// Novo atualizarBosses em jogo.c
+
+enum Direcao { ESQUERDA = -1, DIREITA = 1 };
+static int direcaoBoss = DIREITA;      // Direção inicial
+static float velocidadeBoss = 150.0f;  // px/s
+
+void atualizarBosses(void) {
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        if (!bosses[i].ativo) continue;
+
+        // Move na horizontal
+        bosses[i].posicao.x += direcaoBoss * velocidadeBoss * GetFrameTime();
+
+        // Cálculo de limites levando em conta metade da largura do sprite
+        float halfW = bosses[i].textura.width/2.0f;
+        float minX = AREA_JOGO_X + halfW;
+        float maxX = AREA_JOGO_X + AREA_JOGO_LARGURA - halfW;
+
+        // Se bater em min ou max, inverte direção
+        if (bosses[i].posicao.x <= minX) {
+            bosses[i].posicao.x = minX;
+            direcaoBoss = DIREITA;
+        } else if (bosses[i].posicao.x >= maxX) {
+            bosses[i].posicao.x = maxX;
+            direcaoBoss = ESQUERDA;
+        }
+
+        // Aqui você pode chamar lógica de IA ou ataque, se necessário
+    }
+}
+
 
 // Declare a global array reference to bosses 
 extern Boss bosses[MAX_BOSSES];
