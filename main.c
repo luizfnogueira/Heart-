@@ -29,6 +29,7 @@ Music backgroundMusic;
 int main(void) {
     // Inicialização do Raylib
     InitWindow(LARGURA_TELA, ALTURA_TELA, TITULO_JOGO);
+    SetExitKey(KEY_NULL);  // ← Desativa ESC como atalho para fechar
     SetTargetFPS(60);
     
     // Inicialização do áudio
@@ -102,7 +103,11 @@ int main(void) {
             case TELA_RANKING:
                 telaAtual = atualizarTelaRanking(listaPontuacoes);
                 break;
-                
+            
+            case TELA_CONTROLES:
+                telaAtual = atualizarTelaControles();
+                break;
+
             case TELA_GAMEOVER:
                 StopMusicStream(backgroundMusic);
                 telaAtual = atualizarTelaGameOver(listaPontuacoes);
@@ -141,7 +146,11 @@ int main(void) {
             case TELA_RANKING:
                 desenharTelaRanking(listaPontuacoes);
                 break;
-                
+            
+            case TELA_CONTROLES:
+                desenharTelaControles();
+                break;
+
             case TELA_GAMEOVER:
                 desenharTelaGameOver();
                 break;

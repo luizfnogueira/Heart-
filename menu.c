@@ -8,7 +8,7 @@
 // Definições de constantes
 #define LARGURA_TELA 800
 #define ALTURA_TELA 600
-#define OPCOES_MENU 5
+#define OPCOES_MENU 6
 
 // Variáveis globais do menu
 static int opcaoSelecionada = 0;
@@ -16,7 +16,8 @@ static const char *opcoesMenu[OPCOES_MENU] = {
     "Iniciar Jogo", 
     "História", 
     "Créditos", 
-    "Ranking", 
+    "Ranking",
+    "Controles", 
     "Sair" 
 };
 
@@ -49,7 +50,8 @@ int atualizarMenu(void) {
                     case 1: return TELA_HISTORIA;
                     case 2: return TELA_CREDITOS;
                     case 3: return TELA_RANKING;
-                    case 4: return TELA_SAIR;
+                    case 4: return TELA_CONTROLES;  // <- aqui!
+                    case 5: return TELA_SAIR;
                 }
             }
         }
@@ -186,6 +188,30 @@ void definirPontuacaoFinal(int pontuacao) {
     nomeInserido = false;
     nomeJogador[0] = '\0'; // Limpa o nome para nova entrada
 }
+
+
+int atualizarTelaControles(void) {
+    if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER)) {
+        return TELA_MENU;
+    }
+    return TELA_CONTROLES;
+}
+
+void desenharTelaControles(void) {
+    DrawText("💜 CONTROLES 💜", LARGURA_TELA / 2 - MeasureText("💜 CONTROLES 💜", 50)/2, 40, 50, PURPLE);
+
+    int y = 150;
+    DrawText("- W: Move para cima", 100, y, 25, LIGHTGRAY); y += 35;
+    DrawText("- A: Move para a esquerda", 100, y, 25, LIGHTGRAY); y += 35;
+    DrawText("- S: Move para baixo", 100, y, 25, LIGHTGRAY); y += 35;
+    DrawText("- D: Move para a direita", 100, y, 25, LIGHTGRAY); y += 35;
+    DrawText("- SHIFT: Ativa o poder de boost", 100, y, 25, GOLD); y += 60;
+
+    DrawText("Pressione ENTER ou ESC para voltar", 
+        LARGURA_TELA / 2 - MeasureText("Pressione ENTER ou ESC para voltar", 20)/2, 
+        ALTURA_TELA - 50, 20, LIGHTGRAY);
+}
+
 
 // Funções da tela de game over
 int atualizarTelaGameOver(ListaPontuacao* listaPontuacoes) {

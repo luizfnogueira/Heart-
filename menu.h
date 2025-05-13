@@ -12,6 +12,7 @@ typedef enum {
     TELA_CREDITOS,
     TELA_HISTORIA,
     TELA_RANKING,
+    TELA_CONTROLES,
     TELA_GAMEOVER,
     TELA_SAIR
 } TipoTela;
@@ -28,5 +29,7 @@ void desenharTelaHistoria(void);
 int atualizarTelaGameOver(ListaPontuacao* listaPontuacoes);
 void desenharTelaGameOver(void);
 void definirPontuacaoFinal(int pontuacao);
+int atualizarTelaControles(void);
+void desenharTelaControles(void);
 
 #endif // MENU_H
