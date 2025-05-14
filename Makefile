@@ -14,7 +14,7 @@ ifeq ($(OS),Windows_NT)
     EXT = .exe
 else
     # Bibliotecas para Linux (adicionada curl para API Gemini)
-    LIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl
+    LIBS = -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl
     # Comando para limpar
     RM = rm -f
     # Extensão do executável
@@ -25,11 +25,11 @@ endif
 CC = gcc
 
 # Flags do compilador
-CFLAGS = -Wall -std=c99
+CFLAGS = -Wall -std=c99 -I./raylib/src
 
 # Regra padrão
 all:
-	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)$(EXT) $(LIBS)
+	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)$(EXT) ./raylib/src/libraylib.a $(LIBS)
 
 # Limpeza de arquivos compilados
 clean:
