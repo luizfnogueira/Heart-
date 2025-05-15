@@ -8,9 +8,9 @@
 #define LARGURA_TELA 800
 #define ALTURA_TELA 600
 #define AREA_JOGO_X 50
-#define AREA_JOGO_Y 50
+#define AREA_JOGO_Y 160  // Move a área do jogo para baixo para exibir o quadrado do boss
 #define AREA_JOGO_LARGURA 700
-#define AREA_JOGO_ALTURA 500
+#define AREA_JOGO_ALTURA 400  // Reduzido para abrir espaço para o quadrado do boss
 #define TAMANHO_CORACAO 32
 #define INTERVALO_GERACAO_OBSTACULO 20  // Reduzido para gerar obstáculos mais rápido
 #define PONTOS_POR_FRAME 0.5f  // Aumentado para pontuação mais rápida
@@ -28,6 +28,8 @@
 #define MAX_BOSSES 3
 #define MAX_PADROES_ATAQUE 5
 #define MAX_PROJETEIS 50
+#define ALTURA_QUADRADO_BOSS 100
+#define MARGEM_BOSS 10
 
 // Constantes para números de dano
 #define MAX_NUMEROS_DANO 10  // Máximo de números de dano na tela ao mesmo tempo
@@ -160,7 +162,6 @@ void desenharNumerosDano(void);
 
 // Funções de desenho
 void desenharJogo(void);
-void desenharAreaJogo(void);
 void desenharCoracao(void);
 void desenharObstaculos(void);
 void desenharBarra(void);

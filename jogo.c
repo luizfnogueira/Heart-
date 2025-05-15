@@ -8,9 +8,7 @@
 // Definições de constantes
 #define LARGURA_TELA 800
 #define AREA_JOGO_X 50
-#define AREA_JOGO_Y 50
 #define AREA_JOGO_LARGURA 700
-#define AREA_JOGO_ALTURA 500
 // Velocidade do coração definida em jogo.h
 
 // Variáveis globais do jogo
@@ -820,6 +818,14 @@ void mudarParaFase3(void) {
 void desenharJogo(void) {
     BeginDrawing();
     ClearBackground(BLACK);
+    
+    // Desenha o quadrado do BOSS acima da área do jogador, estilo Undertale
+    int alturaBoss = ALTURA_QUADRADO_BOSS;
+    int margemVertical = MARGEM_BOSS;
+    int bossQuadY = AREA_JOGO_Y - alturaBoss - margemVertical;
+    // Preenche fundo preto e borda branca grossa
+    DrawRectangle(AREA_JOGO_X, bossQuadY, AREA_JOGO_LARGURA, alturaBoss, BLACK);
+    DrawRectangleLinesEx((Rectangle){AREA_JOGO_X, bossQuadY, AREA_JOGO_LARGURA, alturaBoss}, 4, WHITE);
     
     // Desenha o fundo da fase atual
     Color corFundo;
@@ -2364,17 +2370,5 @@ void atualizarBosses(void) {
     }
 }
 
-
 // Declare a global array reference to bosses 
 extern Boss bosses[MAX_BOSSES];
-
-// Desenhar a área de jogo (contorno e fundo)
-void desenharAreaJogo(void) {
-    // Desenha o fundo da área de jogo
-    DrawRectangle(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, 
-                 (Color){20, 20, 30, 255});
-    
-    // Desenha o contorno da área de jogo
-    DrawRectangleLines(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, 
-                      WHITE);
-}
