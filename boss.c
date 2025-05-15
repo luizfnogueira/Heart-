@@ -62,11 +62,11 @@ void inicializarBosses(void) {
         }
 
         // Controle por IA
-        bosses[i].inteligente = true;
-        strcpy(bosses[i].ultimaResposta, "Aguardando primeira decisão da IA...");
+        // bosses[i].inteligente = true;
+        // strcpy(bosses[i].ultimaResposta, "Aguardando primeira decisão da IA...");
     }
 
-    printf("Bosses inicializados com sucesso!\\n");
+    printf("Bosses inicializados com sucesso!\n");
 }
 
 void desenharBosses(void) {

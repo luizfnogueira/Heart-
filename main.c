@@ -15,8 +15,9 @@
 #include "jogo.h"
 #include "pontuacao.h"
 #include "boss.h"           
-#include "gemini_config.h"
-#include <curl/curl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Definições de constantes
 #define LARGURA_TELA    800
@@ -49,22 +50,6 @@ int main(void) {
     ListaPontuacao* listaPontuacoes = inicializarListaPontuacao();
     carregarPontuacoes(listaPontuacoes);
     
-    // Inicialização da API Gemini para controle de bosses por IA
-    ConfiguracaoGemini configGemini;
-    inicializarConfigGemini(&configGemini);
-    if (!validarConfigGemini(configGemini)) {
-        printf("AVISO: Configuração da API Gemini inválida. Os bosses usarão comportamento padrão.\n");
-    } else {
-        printf("API Gemini configurada com sucesso! Os bosses serão controlados por IA.\n");
-        printf("Email de contato do projeto: %s\n", EMAIL_CONTATO);
-    }
-    
-    // Inicializa a biblioteca CURL
-    curl_global_init(CURL_GLOBAL_ALL);
-    
-    // Exibe informações sobre o projeto acadêmico
-    exibirInformacoesProjetoAcademico();
-
     // Inicializa bosses
     inicializarBosses();
     
@@ -133,9 +118,6 @@ int main(void) {
     
     // Descarrega textura do boss
     UnloadBossTexture();
-    
-    // Limpeza de CURL
-    curl_global_cleanup();
     
     // Encerramento
     CloseAudioDevice();

@@ -3,8 +3,6 @@
 #define JOGO_H
 
 #include "raylib.h"
-#include <curl/curl.h>
-// Removida dependência de jansson.h para simplificar
 
 // Constantes do jogo
 #define LARGURA_TELA 800
@@ -16,10 +14,6 @@
 #define TAMANHO_CORACAO 32
 #define INTERVALO_GERACAO_OBSTACULO 20  // Reduzido para gerar obstáculos mais rápido
 #define PONTOS_POR_FRAME 0.5f  // Aumentado para pontuação mais rápida
-
-// Constantes para a API Gemini
-// Removido GEMINI_API_URL para evitar colisão com a definição nas constantes de IA
-#define EMAIL_CONTATO "tcq@cesar.school"
 
 // Constantes de obstáculos - aumentados para maior dificuldade
 #define MAX_OBSTACULOS_BRANCOS 70  // Aumentado de 50 para 70
@@ -34,14 +28,6 @@
 #define MAX_BOSSES 3
 #define MAX_PADROES_ATAQUE 5
 #define MAX_PROJETEIS 50
-
-// Constantes para IA - Múltiplas URLs para tentativas
-#define GEMINI_API_URL_V1 "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-#define GEMINI_API_URL_V2 "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent"
-#define GEMINI_API_URL_V3 "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent"
-#define GEMINI_API_URL_V4 "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent"
-
-#define EMAIL_CONTATO "tcq@cesar.school"
 
 // Constantes para números de dano
 #define MAX_NUMEROS_DANO 10  // Máximo de números de dano na tela ao mesmo tempo
@@ -75,8 +61,6 @@ typedef struct {
     int comprimento; // Comprimento do obstáculo
 } Obstaculo;
 
-// Estrutura para armazenar a resposta da API - definida mais abaixo
-
 // Estrutura para os projéteis dos bosses
 typedef struct {
     Vector2 posicao;
@@ -84,7 +68,6 @@ typedef struct {
     float raio;
     Color cor;
     bool ativo;
-    float dano;
     Texture2D textura;  // Textura do projétil
     bool usaSprite;     // Indica se deve usar sprite em vez de círculo
     float rotacao;      // Rotação do sprite
@@ -112,8 +95,6 @@ typedef struct {
     char nome[50];
     char descricao[200];
     Projetil projeteis[MAX_PROJETEIS];
-    bool inteligente; // Controlado por IA
-    char ultimaResposta[1024]; // Última resposta da IA
 } Boss;
 
 // Estrutura para os números de dano/cura flutuantes
@@ -126,12 +107,6 @@ typedef struct {
     bool ehDano; // true = dano, false = cura
     Color cor;
 } NumeroDano;
-
-// Estrutura para armazenar dados da resposta da API
-typedef struct {
-    char *data;
-    size_t size;
-} ApiResponse;
 
 // Variáveis globais compartilhadas entre arquivos
 extern Vector2 posicaoCoracao;
@@ -177,16 +152,6 @@ void mudarParaFase3(void);
 // Funções de colisão
 bool detectarColisoes(void);
 
-// Funções relacionadas à IA
-void determinarProximoAtaqueBoss(Boss* boss);
-void inicializarIA(void);
-void finalizarIA(void);
-char* consultarGeminiAPI(const char* prompt, const char* contexto);
-void definirDificuldade(NivelDificuldade nivel);
-void ativarBossDaFase(int fase);
-void adicionarProjetil(Boss* boss, Vector2 direcao, float velocidade, float raio, Color cor, float dano);
-void executarAtaqueBoss(Boss* boss);
-
 // Funções de números de dano
 void inicializarNumerosDano(void);
 void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano);
@@ -203,5 +168,11 @@ void desenharBoss(void);
 void desenharBosses(void);
 void desenharProjeteis(void);
 void desenharFase(void);
+
+// Declaração da função definirDificuldade
+void definirDificuldade(NivelDificuldade nivel);
+
+// Declaração da função ativarBossDaFase
+void ativarBossDaFase(int fase);
 
 #endif // JOGO_H

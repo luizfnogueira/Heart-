@@ -80,9 +80,6 @@ void inicializarJogo(void) {
     // Inicializa números de dano
     inicializarNumerosDano();
     
-    // Inicializa a IA
-    inicializarIA();
-    
     // Inicializa e ativa o boss da fase 1
     inicializarBosses();
     ativarBossDaFase(1);

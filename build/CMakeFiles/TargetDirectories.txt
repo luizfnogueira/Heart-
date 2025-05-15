@@ -1,3 +1,0 @@
-/mnt/c/Users/thiag/OneDrive/Desktop/Heart-/build/CMakeFiles/Heart.dir
-/mnt/c/Users/thiag/OneDrive/Desktop/Heart-/build/CMakeFiles/edit_cache.dir
-/mnt/c/Users/thiag/OneDrive/Desktop/Heart-/build/CMakeFiles/rebuild_cache.dir

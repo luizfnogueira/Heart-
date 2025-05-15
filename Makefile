@@ -1,20 +1,20 @@
 # Nome do executável
 TARGET = heart
 
-# Fontes do jogo (atualizadas para incluir os novos arquivos)
-SRCS = main.c menu.c jogo.c pontuacao.c boss.c ia_gemini.c gemini_config.c
+# Fontes do jogo (removidas referências à IA)
+SRCS = main.c menu.c jogo.c pontuacao.c boss.c
 
 # Detectar sistema operacional
 ifeq ($(OS),Windows_NT)
-    # Bibliotecas para Windows (adicionada curl para API Gemini)
-    LIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lcurl
+    # Bibliotecas para Windows
+    LIBS = -lraylib -lopengl32 -lgdi32 -lwinmm
     # Comando para limpar
     RM = del
     # Extensão do executável
     EXT = .exe
 else
-    # Bibliotecas para Linux (adicionada curl para API Gemini)
-    LIBS = -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl
+    # Bibliotecas para Linux
+    LIBS = -lGL -lm -lpthread -ldl -lrt -lX11
     # Comando para limpar
     RM = rm -f
     # Extensão do executável
