@@ -71,6 +71,8 @@ void inicializarJogo(void) {
     velocidadeCoracao = VELOCIDADE_CORACAO;
     modoChefao = true;  // Ativa o modo chefão desde o início
     dificuldadeAtual = NORMAL; // Define a dificuldade inicial
+    bosses[0].ativo = true;
+
     
     // Inicializa obstáculos
     inicializarObstaculos();
@@ -2335,9 +2337,11 @@ void atualizarProjeteis(void) {
 
 
 void ativarBossDaFase(int fase) {
-    // Exemplo: ativa o boss daquela fase
-    if (fase >= 1 && fase <= MAX_BOSSES) bosses[fase-1].ativo = true;
+    for (int i = 0; i < MAX_BOSSES; i++) {
+        bosses[i].ativo = (bosses[i].fase == fase);
+    }
 }
+
 
 // Novo atualizarBosses em jogo.c
 
@@ -2349,11 +2353,22 @@ void atualizarBosses(void) {
     for (int i = 0; i < MAX_BOSSES; i++) {
         if (!bosses[i].ativo) continue;
 
+        // Verifica se o boss foi derrotado
+        if (bosses[i].vida <= 0) {
+            bosses[i].ativo = false;
+
+            faseAtual++;
+            if (faseAtual > MAX_BOSSES) faseAtual = MAX_BOSSES;
+
+            ativarBossDaFase(faseAtual);
+            continue;  // evita que o boss morto se mova nesse frame
+        }
+
         // Move na horizontal
         bosses[i].posicao.x += direcaoBoss * velocidadeBoss * GetFrameTime();
 
         // Cálculo de limites levando em conta metade da largura do sprite
-        float halfW = bosses[i].textura.width/2.0f;
+        float halfW = bosses[i].frameAtual.width * 0.5f * 0.5f; // frameWidth * escala
         float minX = AREA_JOGO_X + halfW;
         float maxX = AREA_JOGO_X + AREA_JOGO_LARGURA - halfW;
 
