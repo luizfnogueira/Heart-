@@ -31,13 +31,15 @@ void inicializarBosses(void) {
         int faseIndex = (i % TOTAL_FASES);
         bosses[i].textura = bossTextures[faseIndex];
 
-        float escala = 0.5f;
+        // Centraliza o boss no meio do quadrado do boss e ajusta escala para encaixar perfeitamente
         float frameWidth = (float)bosses[i].textura.width / 4;
         float frameHeight = (float)bosses[i].textura.height;
-
-        // Centraliza o boss no topo da área de jogo
+        float escala = ALTURA_QUADRADO_BOSS / frameHeight; // Escala para encaixar altura no quadrado
+        if (frameWidth * escala > ALTURA_QUADRADO_BOSS) {
+            escala = ALTURA_QUADRADO_BOSS / frameWidth; // Se largura for maior, ajusta pela largura
+        }
         bosses[i].posicao.x = AREA_JOGO_X + (AREA_JOGO_LARGURA - frameWidth * escala) / 2;
-        bosses[i].posicao.y = AREA_JOGO_Y + 10;
+        bosses[i].posicao.y = AREA_JOGO_Y - ALTURA_QUADRADO_BOSS + (ALTURA_QUADRADO_BOSS - frameHeight * escala) / 2; // Centraliza no quadrado superior
 
         bosses[i].vida              = 500.0f * (i + 1);
         bosses[i].vidaMaxima        = bosses[i].vida;
@@ -86,16 +88,24 @@ void desenharBosses(void) {
             }
         }
 
-        float escala = 0.5f;
+        // Centraliza o boss no meio do quadrado do boss e ajusta escala
+        float frameWidth = bosses[i].frameAtual.width;
+        float frameHeight = bosses[i].frameAtual.height;
+        float escala = ALTURA_QUADRADO_BOSS / frameHeight;
+        if (frameWidth * escala > ALTURA_QUADRADO_BOSS) {
+            escala = ALTURA_QUADRADO_BOSS / frameWidth;
+        }
+        float bossX = AREA_JOGO_X + (AREA_JOGO_LARGURA - frameWidth * escala) / 2;
+        float bossY = AREA_JOGO_Y - ALTURA_QUADRADO_BOSS + (ALTURA_QUADRADO_BOSS - frameHeight * escala) / 2;
 
         DrawTexturePro(
             bosses[i].textura,
             bosses[i].frameAtual,
             (Rectangle){
-                bosses[i].posicao.x,
-                bosses[i].posicao.y,
-                bosses[i].frameAtual.width * escala,
-                bosses[i].frameAtual.height * escala
+                bossX,
+                bossY,
+                frameWidth * escala,
+                frameHeight * escala
             },
             (Vector2){ 0, 0 },
             0.0f,

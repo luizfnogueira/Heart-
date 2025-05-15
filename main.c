@@ -15,6 +15,7 @@
 #include "jogo.h"
 #include "pontuacao.h"
 #include "boss.h"           
+#include "obstaculo_sprites.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
