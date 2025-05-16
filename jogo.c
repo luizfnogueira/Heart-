@@ -18,6 +18,10 @@ Texture2D texturaOssoHorizontal;
 // --- Adicionado: textura do osso grande do topo ---
 Texture2D texturaOssoGrandeTopo;
 
+// Corrigido: variáveis de tempo de onda/obstáculo
+static float tempoUltimaOnda = 0.0f;
+static float tempoUltimoObstaculo = 0.0f;
+
 // Variáveis locais do jogo
 static bool jogadorMovendo;
 static int contadorObstaculos = 0;
@@ -41,6 +45,91 @@ static Obstaculo obstaculosRoxos[MAX_OBSTACULOS_ROXOS];
 static Obstaculo obstaculosAmarelos[MAX_OBSTACULOS_AMARELOS];
 
 static bool efeitosVisuaisAvancados = true;
+
+// --- Estrutura para avisos de laser ---
+typedef struct {
+    bool ativo;
+    float tempoRestante;
+    float x, y;
+    int comprimento;
+} AvisoLaser;
+
+#define MAX_AVISOS_LASER 16
+static AvisoLaser avisosLaser[MAX_AVISOS_LASER];
+#define TEMPO_AVISO_LASER 0.6f
+
+// --- Parâmetros para variação de tamanho da tela ---
+static float tempoTela = 0.0f;
+static float escalaTela = 1.0f;
+
+// --- Texturas para caveiras2 e poderes (raio/laser) ---
+static Texture2D texturaCaveiras2 = {0};
+static Texture2D texturaPoderes = {0};
+
+void carregarSpritesEspeciais(void) {
+    if (texturaCaveiras2.id == 0)
+        texturaCaveiras2 = LoadTexture("recursos/Sprites/caveiras2.png");
+    if (texturaPoderes.id == 0)
+        texturaPoderes = LoadTexture("recursos/Sprites/poderes.png");
+}
+
+// Chame isso no início de desenharJogo()
+void atualizarEscalaTela(void) {
+    tempoTela += GetFrameTime();
+    // Variação pulsante e caótica
+    float base = 1.0f + 0.08f * sinf(tempoTela * 2.5f);
+    float caos = 0.04f * sinf(tempoTela * 7.0f + sinf(tempoTela * 2.0f));
+    escalaTela = base + caos;
+}
+
+// Use esta função para desenhar tudo dentro da área de jogo com escala
+void BeginAreaJogoComEscala(void) {
+    Vector2 centro = {AREA_JOGO_X + AREA_JOGO_LARGURA/2, AREA_JOGO_Y + AREA_JOGO_ALTURA/2};
+    BeginMode2D((Camera2D){
+        .offset = centro,
+        .target = centro,
+        .rotation = 0,
+        .zoom = escalaTela
+    });
+}
+void EndAreaJogoComEscala(void) {
+    EndMode2D();
+}
+
+// Função para criar aviso de laser
+void criarAvisoLaser(float x, float y, int comprimento) {
+    for (int i = 0; i < MAX_AVISOS_LASER; i++) {
+        if (!avisosLaser[i].ativo) {
+            avisosLaser[i].ativo = true;
+            avisosLaser[i].tempoRestante = TEMPO_AVISO_LASER;
+            avisosLaser[i].x = x;
+            avisosLaser[i].y = y;
+            avisosLaser[i].comprimento = comprimento;
+            break;
+        }
+    }
+}
+
+// Atualiza e desenha avisos de laser
+void atualizarEDesenharAvisosLaser(void) {
+    for (int i = 0; i < MAX_AVISOS_LASER; i++) {
+        if (avisosLaser[i].ativo) {
+            avisosLaser[i].tempoRestante -= GetFrameTime();
+            float alpha = 0.5f + 0.5f * sinf(GetTime() * 20.0f);
+            Color corAviso = (Color){255, 255, 100, (unsigned char)(180 * alpha)};
+            // Desenha aviso de laser (linha brilhante horizontal)
+            DrawRectangle(avisosLaser[i].x + 32, avisosLaser[i].y - 8, 220, 16, corAviso);
+            if (avisosLaser[i].tempoRestante <= 0) {
+                avisosLaser[i].ativo = false;
+            }
+        }
+    }
+}
+
+// Limpa avisos de laser
+void limparAvisosLaser(void) {
+    for (int i = 0; i < MAX_AVISOS_LASER; i++) avisosLaser[i].ativo = false;
+}
 
 // Implementação das funções do jogo
 
@@ -82,6 +171,12 @@ void inicializarJogo(void) {
     // Inicializa o coração e obstáculos
     inicializarCoracao();
     inicializarObstaculos();
+    
+    // Inicializa avisos de laser
+    limparAvisosLaser();
+
+    // Carregar sprites especiais
+    carregarSpritesEspeciais();
 }
 
 // --- Liberar textura do osso grande do topo ao fechar o jogo ---
@@ -90,6 +185,8 @@ void liberarRecursosJogo(void) {
     UnloadTexture(texturaOssoReto);
     UnloadTexture(texturaOssoHorizontal);
     UnloadTexture(texturaOssoGrandeTopo);
+    UnloadTexture(texturaCaveiras2);
+    UnloadTexture(texturaPoderes);
 }
 
 // Inicializa a posição do coração
@@ -175,9 +272,144 @@ void gerarOndaDeOssos(void) {
     }
 }
 
-// Atualiza o estado do jogo
-static float tempoUltimaOnda = 0.0f;
-static float tempoUltimoObstaculo = 0.0f;
+// --- Nova função: Sans Fight para todas as fases ---
+static float sansTempoAtaque = 0.0f;
+static int sansPadraoAtual = 0;
+static float sansIntervaloPadrao = 2.0f;
+
+void sansFightFase(void) {
+    // Box de esquiva (área de movimento do coração)
+    DrawRectangleLines(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, (Color){255,255,255,180});
+    atualizarEDesenharAvisosLaser(); // Desenha avisos de laser
+    
+    // --- NOVO: Caveiras de caveiras2 indicam laser, spawnam só na fase 2 ---
+    static float tempoCaveiraLaser = 0.0f;
+    if (faseAtual == 2) {
+        tempoCaveiraLaser += GetFrameTime();
+        float intervalo = 1.2f + (GetRandomValue(0, 10) / 10.0f); // 1.2s a 2.2s
+        if (tempoCaveiraLaser > intervalo) {
+            // Sorteia uma posição Y para a caveira
+            float y = AREA_JOGO_Y + GetRandomValue(40, AREA_JOGO_ALTURA - 40);
+            // Cria obstáculo roxo (caveira2) que vai indicar o laser
+            for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+                if (!obstaculosRoxos[i].ativo) {
+                    obstaculosRoxos[i].ativo = true;
+                    obstaculosRoxos[i].posicao.x = AREA_JOGO_X + 40;
+                    obstaculosRoxos[i].posicao.y = y;
+                    obstaculosRoxos[i].comprimento = 32; // tamanho da caveira
+                    obstaculosRoxos[i].velocidade = 0; // fixa
+                    // Cria aviso de laser na mesma linha
+                    criarAvisoLaser(AREA_JOGO_X + 40, y, 32);
+                    break;
+                }
+            }
+            tempoCaveiraLaser = 0.0f;
+        }
+    }
+    
+    // Ataques de ossos horizontais e verticais, padrões variam conforme a fase
+    sansTempoAtaque += GetFrameTime();
+    float intervaloBase = 1.2f - 0.2f * (faseAtual-1); // Fases mais avançadas = ataques mais rápidos
+    if (intervaloBase < 0.5f) intervaloBase = 0.5f;
+    if (sansTempoAtaque > sansIntervaloPadrao * intervaloBase) {
+        sansTempoAtaque = 0;
+        // Mais padrões nas fases avançadas
+        int maxPadrao = (faseAtual >= 3) ? 3 : 2;
+        sansPadraoAtual = GetRandomValue(0, maxPadrao); // 0: horizontal, 1: vertical, 2: mista, 3: caveiras
+        sansIntervaloPadrao = 1.0f + GetRandomValue(0, 10) / 10.0f;
+        if (sansPadraoAtual == 0) {
+            // Ossos horizontais subindo do chão
+            for (int i = 0; i < 6 + faseAtual; i++) {
+                for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
+                    if (!obstaculosBrancos[j].ativo) {
+                        obstaculosBrancos[j].ativo = true;
+                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + 30 + i * 30;
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA + 30;
+                        obstaculosBrancos[j].velocidade = -4.0f - GetRandomValue(0, 2) - faseAtual;
+                        obstaculosBrancos[j].comprimento = 10; // vertical
+                        break;
+                    }
+                }
+            }
+        } else if (sansPadraoAtual == 1) {
+            // Ossos verticais vindo da direita
+            for (int i = 0; i < 5 + faseAtual; i++) {
+                for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
+                    if (!obstaculosBrancos[j].ativo) {
+                        obstaculosBrancos[j].ativo = true;
+                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA + 30;
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + 30 + i * 30;
+                        obstaculosBrancos[j].velocidade = -5.0f - GetRandomValue(0, 2) - faseAtual;
+                        obstaculosBrancos[j].comprimento = 30; // horizontal
+                        break;
+                    }
+                }
+            }
+        } else if (sansPadraoAtual == 2) {
+            // Misto: ossos de baixo e da direita
+            for (int i = 0; i < 3 + faseAtual; i++) {
+                for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
+                    if (!obstaculosBrancos[j].ativo) {
+                        obstaculosBrancos[j].ativo = true;
+                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + 30 + i * 60;
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA + 30;
+                        obstaculosBrancos[j].velocidade = -6.0f - faseAtual;
+                        obstaculosBrancos[j].comprimento = 10;
+                        break;
+                    }
+                }
+            }
+            for (int i = 0; i < 2 + faseAtual; i++) {
+                for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
+                    if (!obstaculosBrancos[j].ativo) {
+                        obstaculosBrancos[j].ativo = true;
+                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA + 30;
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + 60 + i * 60;
+                        obstaculosBrancos[j].velocidade = -7.0f - faseAtual;
+                        obstaculosBrancos[j].comprimento = 30;
+                        break;
+                    }
+                }
+            }
+        } else if (sansPadraoAtual == 3) {
+            // Caveiras lançando projéteis (laser): cria aviso antes de ativar
+            for (int i = 0; i < 2 + faseAtual; i++) {
+                float x = AREA_JOGO_X + AREA_JOGO_LARGURA + 10;
+                float y = AREA_JOGO_Y + 40 + i * 80;
+                int comprimento = 30;
+                criarAvisoLaser(x, y, comprimento * 2);
+            }
+        }
+    }
+    // Atualiza obstáculos (ossos)
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
+        if (obstaculosBrancos[i].ativo) {
+            if (obstaculosBrancos[i].comprimento == 10) {
+                // Ossos verticais sobem
+                obstaculosBrancos[i].posicao.y += obstaculosBrancos[i].velocidade;
+                if (obstaculosBrancos[i].posicao.y < AREA_JOGO_Y - 40) obstaculosBrancos[i].ativo = false;
+            } else {
+                // Ossos horizontais vêm da direita
+                obstaculosBrancos[i].posicao.x += obstaculosBrancos[i].velocidade;
+                if (obstaculosBrancos[i].posicao.x < AREA_JOGO_X - 40) obstaculosBrancos[i].ativo = false;
+            }
+        }
+    }
+    // Atualiza obstáculos roxos (caveiras)
+    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+        if (obstaculosRoxos[i].ativo) {
+            obstaculosRoxos[i].posicao.x += obstaculosRoxos[i].velocidade;
+            if (obstaculosRoxos[i].posicao.x < AREA_JOGO_X - 40) obstaculosRoxos[i].ativo = false;
+        }
+    }
+    // Feedback visual: tela pisca ao tomar dano
+    if (efeitoDanoTempo > 0.0f) {
+        DrawRectangle(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, (Color){255,255,255,60});
+    }
+    // Atualiza e desenha avisos de laser
+    atualizarEDesenharAvisosLaser();
+}
+
 bool atualizarJogo(void) {
     // Verifica transições de fase
     if (pontuacao >= 200 && faseAtual == 1) {
@@ -208,6 +440,16 @@ bool atualizarJogo(void) {
         float intervalo = 0.5f + (GetRandomValue(0, 10) / 20.0f); // 0.5s a 1s
         if (tempoAtual - tempoUltimoObstaculo > intervalo) {
             gerarObstaculoBrancoAleatorio();
+            tempoUltimoObstaculo = tempoAtual;
+        }
+    } else if (faseAtual == 2) {
+        // Fase 2: avisos de laser antes de ativar obstáculos roxos
+        float intervalo = 1.0f + (GetRandomValue(0, 10) / 10.0f); // 1s a 2s
+        if (tempoAtual - tempoUltimoObstaculo > intervalo) {
+            float x = AREA_JOGO_X + AREA_JOGO_LARGURA / 2.0f;
+            float y = AREA_JOGO_Y + GetRandomValue(40, AREA_JOGO_ALTURA - 40);
+            int comprimento = GetRandomValue(50, 150);
+            criarAvisoLaser(x, y, comprimento);
             tempoUltimoObstaculo = tempoAtual;
         }
     } else if (tempoAtual - tempoUltimaOnda > 1.2f) {
@@ -278,65 +520,22 @@ void definirDificuldade(NivelDificuldade nivel) {
 
 // Fase 2: mecânica de chão estilo Undertale
 void atualizarCoracao(void) {
-    if (faseAtual == 2) {
-        // Mecânica de chão: só move na horizontal, pode pular
-        static float velocidadeY = 0;
-        static bool noChao = true;
-        float gravidade = 1.2f;
-        float forcaPulo = -13.0f;
-        float chaoY = AREA_JOGO_Y + AREA_JOGO_ALTURA - 20; // chão
-        // --- Limite superior pelo osso grande do topo ---
-        float escalaOssoTopo = (float)AREA_JOGO_LARGURA / (12.0f * 6.0f);
-        float alturaOsso = 202 * escalaOssoTopo;
-        float limiteSuperior = AREA_JOGO_Y + alturaOsso - 10.0f; // -10 para folga visual
-        // Movimento horizontal
-        if (IsKeyDown(KEY_A) && posicaoCoracao.x > AREA_JOGO_X + TAMANHO_CORACAO/2) {
-            posicaoCoracao.x -= velocidadeCoracao;
-            jogadorMovendo = true;
-        }
-        if (IsKeyDown(KEY_D) && posicaoCoracao.x < AREA_JOGO_X + AREA_JOGO_LARGURA - TAMANHO_CORACAO/2) {
-            posicaoCoracao.x += velocidadeCoracao;
-            jogadorMovendo = true;
-        }
-        // Pulo
-        if (noChao && (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_SPACE))) {
-            velocidadeY = forcaPulo;
-            noChao = false;
-        }
-        // Aplica gravidade
-        if (!noChao) {
-            posicaoCoracao.y += velocidadeY;
-            velocidadeY += gravidade;
-            // --- Limite superior pelo osso grande do topo ---
-            if (posicaoCoracao.y < limiteSuperior) {
-                posicaoCoracao.y = limiteSuperior;
-                velocidadeY = 0;
-            }
-            if (posicaoCoracao.y >= chaoY) {
-                posicaoCoracao.y = chaoY;
-                velocidadeY = 0;
-                noChao = true;
-            }
-        } else {
-            posicaoCoracao.y = chaoY;
-        }
-    } else {
-        if (IsKeyDown(KEY_W) && posicaoCoracao.y > AREA_JOGO_Y + TAMANHO_CORACAO/2) {
-            posicaoCoracao.y -= velocidadeCoracao;
-            jogadorMovendo = true;
-        }
-        if (IsKeyDown(KEY_S) && posicaoCoracao.y < AREA_JOGO_Y + AREA_JOGO_ALTURA - TAMANHO_CORACAO/2) {
-            posicaoCoracao.y += velocidadeCoracao;
-            jogadorMovendo = true;
-        }
-        if (IsKeyDown(KEY_A) && posicaoCoracao.x > AREA_JOGO_X + TAMANHO_CORACAO/2) {
-            posicaoCoracao.x -= velocidadeCoracao;
-            jogadorMovendo = true;
-        }
-        if (IsKeyDown(KEY_D) && posicaoCoracao.x < AREA_JOGO_X + AREA_JOGO_LARGURA - TAMANHO_CORACAO/2) {
-            posicaoCoracao.x += velocidadeCoracao;
-            jogadorMovendo = true;
-        }
+    // Movimento livre em todas as fases (WASD)
+    if (IsKeyDown(KEY_W) && posicaoCoracao.y > AREA_JOGO_Y + TAMANHO_CORACAO/2) {
+        posicaoCoracao.y -= velocidadeCoracao;
+        jogadorMovendo = true;
+    }
+    if (IsKeyDown(KEY_S) && posicaoCoracao.y < AREA_JOGO_Y + AREA_JOGO_ALTURA - TAMANHO_CORACAO/2) {
+        posicaoCoracao.y += velocidadeCoracao;
+        jogadorMovendo = true;
+    }
+    if (IsKeyDown(KEY_A) && posicaoCoracao.x > AREA_JOGO_X + TAMANHO_CORACAO/2) {
+        posicaoCoracao.x -= velocidadeCoracao;
+        jogadorMovendo = true;
+    }
+    if (IsKeyDown(KEY_D) && posicaoCoracao.x < AREA_JOGO_X + AREA_JOGO_LARGURA - TAMANHO_CORACAO/2) {
+        posicaoCoracao.x += velocidadeCoracao;
+        jogadorMovendo = true;
     }
 }
 
@@ -428,7 +627,6 @@ void atualizarObstaculosRoxos(void) {
     for (int i = 0; i < 30; i++) {
         if (obstaculosRoxos[i].ativo) {
             obstaculosRoxos[i].posicao.x -= obstaculosRoxos[i].velocidade;
-            
             if (obstaculosRoxos[i].posicao.x < AREA_JOGO_X) {
                 obstaculosRoxos[i].ativo = false;
             }
@@ -500,13 +698,35 @@ bool detectarColisoes(void) {
                 if (CheckCollisionRecs(coracaoRect, hitboxOsso)) {
                     obstaculosBrancos[i].ativo = false;
                     vidaAnterior = vidaCoracao;
-                    float danoCausado = 15.0f + faseAtual * 5.0f;
+                    float danoCausado = 7.0f + faseAtual * 2.0f; // Dano reduzido
                     vidaCoracao -= danoCausado;
                     ultimoDano = vidaAnterior - vidaCoracao;
                     efeitoDanoTempo = 1.0f;
                     adicionarNumeroDano(danoCausado, posicaoCoracao, true);
                     pontuacao -= 20;
                     if (pontuacao < 0) pontuacao = 0;
+                }
+            }
+        }
+    }
+    
+    // Colisão caveira2 + laser (fase 2)
+    if (faseAtual == 2) {
+        for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+            if (obstaculosRoxos[i].ativo) {
+                float xLaser = obstaculosRoxos[i].posicao.x + 16;
+                float yLaser = obstaculosRoxos[i].posicao.y - 12;
+                Rectangle hitboxLaser = {xLaser, yLaser, 8*28, 24};
+                if (CheckCollisionRecs(coracaoRect, hitboxLaser)) {
+                    vidaAnterior = vidaCoracao;
+                    float danoCausado = 18.0f + faseAtual * 2.0f;
+                    vidaCoracao -= danoCausado;
+                    ultimoDano = vidaAnterior - vidaCoracao;
+                    efeitoDanoTempo = 1.2f;
+                    adicionarNumeroDano(danoCausado, posicaoCoracao, true);
+                    pontuacao -= 40;
+                    if (pontuacao < 0) pontuacao = 0;
+                    colisao = true;
                 }
             }
         }
@@ -524,7 +744,7 @@ bool detectarColisoes(void) {
             if (CheckCollisionRecs(coracaoRect, obstaculoRect)) {
                 obstaculosRoxos[i].ativo = false;
                 vidaAnterior = vidaCoracao;
-                float danoCausado = 25.0f + faseAtual * 7.0f;
+                float danoCausado = 12.0f + faseAtual * 3.0f; // Dano reduzido
                 vidaCoracao -= danoCausado;
                 ultimoDano = vidaAnterior - vidaCoracao;
                 efeitoDanoTempo = 1.5f;
@@ -565,22 +785,21 @@ bool detectarColisoes(void) {
 
 void mudarParaFase2(void) {
     velocidadeBase = 3.0f;
-    
     for (int i = 0; i < 50; i++) {
         obstaculosBrancos[i].ativo = false;
     }
+    limparAvisosLaser();
 }
 
 void mudarParaFase3(void) {
     velocidadeBase = 4.0f;
-    
     for (int i = 0; i < 50; i++) {
         obstaculosBrancos[i].ativo = false;
     }
-    
     for (int i = 0; i < 30; i++) {
         obstaculosRoxos[i].ativo = false;
     }
+    limparAvisosLaser();
 }
 
 void desenharDebugSpriteSheet(void) {
@@ -591,10 +810,11 @@ void desenharDebugSpriteSheet(void) {
 }
 
 void desenharJogo(void) {
+    atualizarEscalaTela();
     BeginDrawing();
     ClearBackground(BLACK);
     desenharDebugSpriteSheet();
-    
+    BeginAreaJogoComEscala();
     // Desenha o fundo da fase atual
     Color corFundo;
     switch (faseAtual) {
@@ -603,8 +823,9 @@ void desenharJogo(void) {
         case 3: corFundo = (Color){40, 5, 5, 255}; break;
         default: corFundo = (Color){0, 0, 0, 255}; break;
     }
-    
     DrawRectangle(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, corFundo);
+    // Chamar Sans Fight em todas as fases
+    sansFightFase();
     
     if (efeitoDanoTempo > 0.0f) {
         float intensidadeEfeito = efeitoDanoTempo;
@@ -694,6 +915,8 @@ void desenharJogo(void) {
     desenharCoracao();
     
     desenharNumerosDano();
+    
+    EndAreaJogoComEscala();
     
     int barraHPLargura = 200;
     int barraHPAltura = 30;
@@ -842,19 +1065,24 @@ void desenharCoracao(void) {
 }
 
 void desenharObstaculos(void) {
-    // Região correta da spritesheet ossos.png
+    // Sprites dos ossos
     Rectangle srcVertical = {53, 36, 62, 153}; // Osso vertical (em pé)
-    float escalaVertical = 0.35f;  // Escala fiel ao Undertale
+    float escalaVertical = 0.35f;
+    Rectangle srcHorizontal = {124, 6, 10, 11}; // Osso horizontal (ajustar se necessário)
+    float escalaHorizontal = 2.5f;
+    // Sprites caveiras2
+    Rectangle srcCaveiras2[4] = {
+        {0, 0, 32, 32}, {32, 0, 32, 32}, {64, 0, 32, 32}, {96, 0, 32, 32}
+    };
+    float escalaCaveira = 1.2f;
+    // Sprite do laser (3ª imagem de poderes.png)
+    Rectangle srcRaio = {64, 64, 32, 32}; // 3ª imagem (x=64, y=64)
+    float escalaRaio = 1.0f;
+    // Ossos brancos
     for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         if (obstaculosBrancos[i].ativo) {
             float xOsso = obstaculosBrancos[i].posicao.x;
-            float yOsso;
-            if (faseAtual == 2) {
-                // Alinha a base do osso ao chão
-                yOsso = AREA_JOGO_Y + AREA_JOGO_ALTURA - (srcVertical.height * escalaVertical) / 2;
-            } else {
-                yOsso = obstaculosBrancos[i].posicao.y;
-            }
+            float yOsso = obstaculosBrancos[i].posicao.y;
             if (obstaculosBrancos[i].comprimento < 20) {
                 DrawTexturePro(
                     texturaOssoReto,
@@ -864,59 +1092,62 @@ void desenharObstaculos(void) {
                     0,
                     WHITE
                 );
+            } else {
+                DrawTexturePro(
+                    texturaOssoHorizontal,
+                    srcHorizontal,
+                    (Rectangle){xOsso - (srcHorizontal.width * escalaHorizontal) / 2, yOsso - (srcHorizontal.height * escalaHorizontal) / 2, srcHorizontal.width * escalaHorizontal, srcHorizontal.height * escalaHorizontal},
+                    (Vector2){0,0},
+                    0,
+                    WHITE
+                );
             }
         }
     }
-    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
-        if (obstaculosRoxos[i].ativo) {
-            float xProj = obstaculosRoxos[i].posicao.x;
-            float yProj = obstaculosRoxos[i].posicao.y;
-            float raioProj = 12.0f;
-            Color corPrincipal = (Color){180, 50, 220, 255};
-            DrawCircle(xProj, yProj, raioProj, corPrincipal);
+    // Caveiras2 + laser (fase 2)
+    if (faseAtual == 2) {
+        for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+            if (obstaculosRoxos[i].ativo) {
+                float xCaveira = obstaculosRoxos[i].posicao.x;
+                float yCaveira = obstaculosRoxos[i].posicao.y;
+                int idxCaveira = i % 4;
+                // Desenha caveira BEM MAIOR e na frente do laser
+                DrawTexturePro(
+                    texturaCaveiras2,
+                    srcCaveiras2[idxCaveira],
+                    (Rectangle){xCaveira - 24*escalaCaveira, yCaveira - 24*escalaCaveira, 48*escalaCaveira, 48*escalaCaveira},
+                    (Vector2){0,0},
+                    0,
+                    WHITE
+                );
+                // Desenha o laser contínuo (raio) a partir da caveira
+                for (int seg = 0; seg < 8; seg++) {
+                    DrawTexturePro(
+                        texturaPoderes,
+                        srcRaio,
+                        (Rectangle){xCaveira + 24 + seg*28, yCaveira - 16*escalaRaio, 32*escalaRaio, 32*escalaRaio},
+                        (Vector2){0,0},
+                        0,
+                        WHITE
+                    );
+                }
+            }
         }
     }
+    // Obstáculos amarelos: moedas/itens (pode customizar sprite depois)
     for (int i = 0; i < MAX_OBSTACULOS_AMARELOS; i++) {
         if (obstaculosAmarelos[i].ativo) {
             float tempo = GetTime();
             float xMoeda = obstaculosAmarelos[i].posicao.x;
             float yMoeda = obstaculosAmarelos[i].posicao.y;
             float raioMoeda = 10.0f;
-            float angulo = tempo * 120.0f;
-            
             float escala = 1.0f + 0.1f * sinf(tempo * 5.0f);
             raioMoeda *= escala;
-            
             Color corOuro = (Color){255, 215, 0, 255};
             Color corBrilho = (Color){255, 255, 200, 255};
-            
             DrawCircle(xMoeda, yMoeda, raioMoeda, corOuro);
-            
             DrawCircle(xMoeda, yMoeda, raioMoeda * 0.8f, corBrilho);
-            
             DrawText("$", xMoeda - 5, yMoeda - 10, 20, (Color){220, 160, 0, 255});
-            
-            for (int j = 0; j < 4; j++) {
-                float brilhoAngulo = angulo + j * 90.0f;
-                float xBrilho = xMoeda + (raioMoeda * 0.9f) * cosf(brilhoAngulo * DEG2RAD);
-                float yBrilho = yMoeda + (raioMoeda * 0.9f) * sinf(brilhoAngulo * DEG2RAD);
-                
-                DrawCircle(xBrilho, yBrilho, 2.0f, WHITE);
-            }
-            
-            for (int j = 0; j < 2; j++) {
-                float raioAura = raioMoeda * (1.2f + 0.2f * j) * (1.0f + 0.1f * sinf(tempo * 8.0f + j));
-                DrawCircleLines(xMoeda, yMoeda, raioAura, (Color){255, 215, 0, 100 - j * 40});
-            }
-            
-            if (GetRandomValue(0, 10) < 3) {
-                float angParticula = GetRandomValue(0, 360) * DEG2RAD;
-                float distParticula = raioMoeda * 1.2f;
-                float xParticula = xMoeda + distParticula * cosf(angParticula);
-                float yParticula = yMoeda + distParticula * sinf(angParticula);
-                
-                DrawCircle(xParticula, yParticula, 1.5f, (Color){255, 255, 200, 200});
-            }
         }
     }
 }

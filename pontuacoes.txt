@@ -1,0 +1,10 @@
+1000
+a
+a 1000
+a 97
+aa 97
+] 95
+add 77
+da 74
+sa 0
+aaaaaaaa 0
