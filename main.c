@@ -1,14 +1,4 @@
-/*******************************************************************************************
-*
-*   Heart - Um jogo de desviar de obstáculos
-*
-*   Este jogo é uma reimplementação do jogo Heart usando a biblioteca Raylib
-*   
-*   Controles:
-*   - W, A, S, D - Movimentar o coração
-*   - ESC - Sair do jogo
-*
-********************************************************************************************/
+
 
 #include "raylib.h"
 #include "menu.h"
@@ -38,7 +28,7 @@ int main(void) {
     InitAudioDevice();
     
     // Carregamento de recursos
-    backgroundMusic = LoadMusicStream("recursos/Condemned Tower - Castlevania Dawn of Sorrow OST.mp3");
+    backgroundMusic = LoadMusicStream("recursos/CondemnedTower.wav");
     if (backgroundMusic.frameCount == 0) {
         TraceLog(LOG_WARNING, "Falha ao carregar a música de fundo.");
     } else {
