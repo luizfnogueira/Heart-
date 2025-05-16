@@ -67,10 +67,27 @@ static Texture2D texturaCaveiras2 = {0};
 static Texture2D texturaPoderes = {0};
 
 void carregarSpritesEspeciais(void) {
-    if (texturaCaveiras2.id == 0)
+    // Carrega o sprite das caveiras animadas (4 frames horizontais)
+    if (texturaCaveiras2.id == 0) {
         texturaCaveiras2 = LoadTexture("recursos/Sprites/caveiras2.png");
-    if (texturaPoderes.id == 0)
+        if (texturaCaveiras2.id == 0) {
+            printf("ERRO: Não foi possível carregar a textura caveiras2.png\n");
+        } else {
+            printf("Textura caveiras2.png carregada com sucesso: %dx%d\n", 
+                  texturaCaveiras2.width, texturaCaveiras2.height);
+        }
+    }
+    
+    // Carrega o sprite dos poderes (laser na terceira posição)
+    if (texturaPoderes.id == 0) {
         texturaPoderes = LoadTexture("recursos/Sprites/poderes.png");
+        if (texturaPoderes.id == 0) {
+            printf("ERRO: Não foi possível carregar a textura poderes.png\n");
+        } else {
+            printf("Textura poderes.png carregada com sucesso: %dx%d\n", 
+                   texturaPoderes.width, texturaPoderes.height);
+        }
+    }
 }
 
 // Chame isso no início de desenharJogo()
@@ -115,10 +132,30 @@ void atualizarEDesenharAvisosLaser(void) {
     for (int i = 0; i < MAX_AVISOS_LASER; i++) {
         if (avisosLaser[i].ativo) {
             avisosLaser[i].tempoRestante -= GetFrameTime();
-            float alpha = 0.5f + 0.5f * sinf(GetTime() * 20.0f);
+            
+            // Quanto menor o tempo restante, mais rápida a pulsação
+            float frequencia = 20.0f;
+            if (avisosLaser[i].tempoRestante < 0.3f) frequencia = 40.0f;
+            
+            float alpha = 0.5f + 0.5f * sinf(GetTime() * frequencia);
+            
+            // Cor amarelo-alaranjado pulsante para o aviso
             Color corAviso = (Color){255, 255, 100, (unsigned char)(180 * alpha)};
-            // Desenha aviso de laser (linha brilhante horizontal)
-            DrawRectangle(avisosLaser[i].x + 32, avisosLaser[i].y - 8, 220, 16, corAviso);
+            
+            // Desenha aviso de laser (linha fina, mais discreta)
+            DrawRectangle(
+                avisosLaser[i].x, 
+                avisosLaser[i].y - 2, 
+                avisosLaser[i].comprimento, 
+                4, 
+                corAviso
+            );
+            
+            // Adiciona pontos de luz nas extremidades para maior visibilidade
+            float tamanho = 4.0f + 2.0f * sinf(GetTime() * frequencia * 1.5f);
+            DrawCircle(avisosLaser[i].x, avisosLaser[i].y, tamanho, (Color){255, 200, 100, 255});
+            DrawCircle(avisosLaser[i].x + avisosLaser[i].comprimento, avisosLaser[i].y, tamanho, (Color){255, 200, 100, 255});
+            
             if (avisosLaser[i].tempoRestante <= 0) {
                 avisosLaser[i].ativo = false;
             }
@@ -175,8 +212,13 @@ void inicializarJogo(void) {
     // Inicializa avisos de laser
     limparAvisosLaser();
 
-    // Carregar sprites especiais
+    // Carregar sprites especiais (caveiras e poderes)
     carregarSpritesEspeciais();
+    
+    // Verifica se as texturas foram carregadas corretamente
+    if (texturaCaveiras2.id == 0 || texturaPoderes.id == 0) {
+        printf("AVISO: Algumas texturas especiais não puderam ser carregadas!\n");
+    }
 }
 
 // --- Liberar textura do osso grande do topo ao fechar o jogo ---
@@ -200,16 +242,25 @@ void inicializarObstaculos(void) {
     // Inicializa obstáculos brancos
     for (int i = 0; i < 50; i++) {
         obstaculosBrancos[i].ativo = false;
+        obstaculosBrancos[i].frameAnimacao = 0;
+        obstaculosBrancos[i].tempoAnimacao = 0;
+        obstaculosBrancos[i].atirando = false;
     }
     
     // Inicializa obstáculos roxos
     for (int i = 0; i < 30; i++) {
         obstaculosRoxos[i].ativo = false;
+        obstaculosRoxos[i].frameAnimacao = 0;
+        obstaculosRoxos[i].tempoAnimacao = 0;
+        obstaculosRoxos[i].atirando = false;
     }
     
     // Inicializa obstáculos amarelos
     for (int i = 0; i < 10; i++) {
         obstaculosAmarelos[i].ativo = false;
+        obstaculosAmarelos[i].frameAnimacao = 0;
+        obstaculosAmarelos[i].tempoAnimacao = 0;
+        obstaculosAmarelos[i].atirando = false;
     }
 }
 
@@ -298,6 +349,10 @@ void sansFightFase(void) {
                     obstaculosRoxos[i].posicao.y = y;
                     obstaculosRoxos[i].comprimento = 32; // tamanho da caveira
                     obstaculosRoxos[i].velocidade = 0; // fixa
+                    obstaculosRoxos[i].frameAnimacao = 0; // Começa no primeiro frame
+                    obstaculosRoxos[i].tempoAnimacao = 0; // Reinicia contador
+                    obstaculosRoxos[i].atirando = false; // Não está atirando ainda
+                    obstaculosRoxos[i].escala = 1.5f; // Escala maior para caveira visível
                     // Cria aviso de laser na mesma linha
                     criarAvisoLaser(AREA_JOGO_X + 40, y, 32);
                     break;
@@ -410,6 +465,41 @@ void sansFightFase(void) {
     atualizarEDesenharAvisosLaser();
 }
 
+// --- NOVO: Criar caveira atiradora de raios na fase 2 ---
+void criarCaveiraAtiradora(void) {
+    if (faseAtual != 2) return; // Só na fase 2
+    
+    // Limitar o número de caveiras ativas para no máximo 3
+    int caveirasAtivas = 0;
+    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+        if (obstaculosRoxos[i].ativo && obstaculosRoxos[i].velocidade == 0) {
+            caveirasAtivas++;
+        }
+    }
+    
+    if (caveirasAtivas >= 3) return; // Limita a 3 caveiras simultâneas
+    
+    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+        if (!obstaculosRoxos[i].ativo) {
+            obstaculosRoxos[i].ativo = true;
+            // Posiciona no TOPO da área de jogo
+            obstaculosRoxos[i].posicao.x = AREA_JOGO_X + GetRandomValue(60, AREA_JOGO_LARGURA - 60);
+            obstaculosRoxos[i].posicao.y = AREA_JOGO_Y + 10; // No topo da área
+            obstaculosRoxos[i].comprimento = 32; // Tamanho padrão da caveira no spritesheet
+            obstaculosRoxos[i].velocidade = 0; // Não se move
+            obstaculosRoxos[i].frameAnimacao = 0; // Começa na frame 0
+            obstaculosRoxos[i].tempoAnimacao = 0; 
+            obstaculosRoxos[i].atirando = false;
+            obstaculosRoxos[i].escala = 1.2f; // Escala moderada para não ficar muito grande
+            obstaculosRoxos[i].rotacao = 0; // Sem rotação
+            
+            // Cria aviso de laser abaixo da caveira (linha vertical)
+            criarAvisoLaser(obstaculosRoxos[i].posicao.x, obstaculosRoxos[i].posicao.y + 20, AREA_JOGO_ALTURA - 30);
+            break;
+        }
+    }
+}
+
 bool atualizarJogo(void) {
     // Verifica transições de fase
     if (pontuacao >= 200 && faseAtual == 1) {
@@ -443,13 +533,19 @@ bool atualizarJogo(void) {
             tempoUltimoObstaculo = tempoAtual;
         }
     } else if (faseAtual == 2) {
-        // Fase 2: avisos de laser antes de ativar obstáculos roxos
+        // Fase 2: caveiras animadas que disparam lasers
         float intervalo = 1.0f + (GetRandomValue(0, 10) / 10.0f); // 1s a 2s
         if (tempoAtual - tempoUltimoObstaculo > intervalo) {
-            float x = AREA_JOGO_X + AREA_JOGO_LARGURA / 2.0f;
-            float y = AREA_JOGO_Y + GetRandomValue(40, AREA_JOGO_ALTURA - 40);
-            int comprimento = GetRandomValue(50, 150);
-            criarAvisoLaser(x, y, comprimento);
+            // 70% de chance de criar aviso laser comum
+            if (GetRandomValue(0, 100) < 70) {
+                float x = AREA_JOGO_X + AREA_JOGO_LARGURA / 2.0f;
+                float y = AREA_JOGO_Y + GetRandomValue(40, AREA_JOGO_ALTURA - 40);
+                int comprimento = GetRandomValue(50, 150);
+                criarAvisoLaser(x, y, comprimento);
+            } else {
+                // 30% de chance de criar uma caveira atiradora
+                criarCaveiraAtiradora();
+            }
             tempoUltimoObstaculo = tempoAtual;
         }
     } else if (tempoAtual - tempoUltimaOnda > 1.2f) {
@@ -624,11 +720,33 @@ void atualizarObstaculosBrancos(void) {
 }
 
 void atualizarObstaculosRoxos(void) {
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
         if (obstaculosRoxos[i].ativo) {
-            obstaculosRoxos[i].posicao.x -= obstaculosRoxos[i].velocidade;
-            if (obstaculosRoxos[i].posicao.x < AREA_JOGO_X) {
-                obstaculosRoxos[i].ativo = false;
+            // Se velocidade é 0, é uma caveira fixa que atira raios
+            if (obstaculosRoxos[i].velocidade == 0) {
+                // Animação da caveira (mais lenta)
+                obstaculosRoxos[i].tempoAnimacao += GetFrameTime();
+                
+                // A cada 0.5 segundos, avança um frame (desacelerado para melhor visualização)
+                if (obstaculosRoxos[i].tempoAnimacao > 0.5f) {
+                    obstaculosRoxos[i].frameAnimacao = (obstaculosRoxos[i].frameAnimacao + 1) % 4;
+                    obstaculosRoxos[i].tempoAnimacao = 0;
+                    
+                    // Se chegou no frame 3, está atirando
+                    obstaculosRoxos[i].atirando = (obstaculosRoxos[i].frameAnimacao == 3);
+                    
+                    // Se já completou um ciclo completo de animação e acabou de atirar, desativa a caveira
+                    if (obstaculosRoxos[i].frameAnimacao == 0 && obstaculosRoxos[i].tempoAnimacao == 0) {
+                        obstaculosRoxos[i].ativo = false;
+                    }
+                }
+            } else {
+                // Movimentação normal para obstáculos não-fixos
+                obstaculosRoxos[i].posicao.x -= obstaculosRoxos[i].velocidade;
+                
+                if (obstaculosRoxos[i].posicao.x < AREA_JOGO_X - 40) {
+                    obstaculosRoxos[i].ativo = false;
+                }
             }
         }
     }
@@ -713,10 +831,11 @@ bool detectarColisoes(void) {
     // Colisão caveira2 + laser (fase 2)
     if (faseAtual == 2) {
         for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
-            if (obstaculosRoxos[i].ativo) {
+            // Só verifica colisão quando está realmente atirando o laser
+            if (obstaculosRoxos[i].ativo && obstaculosRoxos[i].atirando) {
                 float xLaser = obstaculosRoxos[i].posicao.x + 16;
-                float yLaser = obstaculosRoxos[i].posicao.y - 12;
-                Rectangle hitboxLaser = {xLaser, yLaser, 8*28, 24};
+                float yLaser = obstaculosRoxos[i].posicao.y + 20 * obstaculosRoxos[i].escala; // Ajustado para sair de baixo da caveira
+                Rectangle hitboxLaser = {xLaser, yLaser - 8, 8*28, 16}; // Hitbox mais precisa
                 if (CheckCollisionRecs(coracaoRect, hitboxLaser)) {
                     vidaAnterior = vidaCoracao;
                     float danoCausado = 18.0f + faseAtual * 2.0f;
@@ -785,10 +904,55 @@ bool detectarColisoes(void) {
 
 void mudarParaFase2(void) {
     velocidadeBase = 3.0f;
-    for (int i = 0; i < 50; i++) {
+    
+    // Limpa todos os obstáculos existentes
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         obstaculosBrancos[i].ativo = false;
     }
+    
+    // Limpa todos os obstáculos roxos exceto caveiras ativas
+    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+        if (obstaculosRoxos[i].velocidade != 0) {
+            obstaculosRoxos[i].ativo = false;
+        }
+    }
+    
+    // Limpa avisos de laser
     limparAvisosLaser();
+    
+    // Cria 2 caveiras iniciais em posições diferentes na fase 2
+    float y1 = AREA_JOGO_Y + AREA_JOGO_ALTURA / 3;
+    float y2 = AREA_JOGO_Y + (AREA_JOGO_ALTURA * 2) / 3;
+    
+    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+        if (!obstaculosRoxos[i].ativo) {
+            obstaculosRoxos[i].ativo = true;
+            obstaculosRoxos[i].posicao.x = AREA_JOGO_X + 40;
+            obstaculosRoxos[i].posicao.y = y1;
+            obstaculosRoxos[i].comprimento = 32;
+            obstaculosRoxos[i].velocidade = 0;
+            obstaculosRoxos[i].frameAnimacao = 0;
+            obstaculosRoxos[i].tempoAnimacao = 0;
+            obstaculosRoxos[i].atirando = false;
+            obstaculosRoxos[i].escala = 1.5f;
+            break;
+        }
+    }
+    
+    for (int i = 0; i < MAX_OBSTACULOS_ROXOS; i++) {
+        if (!obstaculosRoxos[i].ativo) {
+            obstaculosRoxos[i].ativo = true;
+            obstaculosRoxos[i].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA - 40;
+            obstaculosRoxos[i].posicao.y = y2;
+            obstaculosRoxos[i].comprimento = 32;
+            obstaculosRoxos[i].velocidade = 0;
+            obstaculosRoxos[i].frameAnimacao = 0;
+            obstaculosRoxos[i].tempoAnimacao = 0;
+            obstaculosRoxos[i].atirando = false;
+            obstaculosRoxos[i].escala = 1.5f;
+            break;
+        }
+    }
 }
 
 void mudarParaFase3(void) {
@@ -1065,18 +1229,24 @@ void desenharCoracao(void) {
 }
 
 void desenharObstaculos(void) {
+    // Garante que todas as texturas estejam carregadas
+    if (texturaCaveiras2.id == 0) {
+        carregarSpritesEspeciais();
+    }
+
     // Sprites dos ossos
     Rectangle srcVertical = {53, 36, 62, 153}; // Osso vertical (em pé)
     float escalaVertical = 0.35f;
     Rectangle srcHorizontal = {124, 6, 10, 11}; // Osso horizontal (ajustar se necessário)
     float escalaHorizontal = 2.5f;
-    // Sprites caveiras2
+    
+    // Sprites caveiras2 com coordenadas precisas dos 4 frames
     Rectangle srcCaveiras2[4] = {
-        {0, 0, 32, 32}, {32, 0, 32, 32}, {64, 0, 32, 32}, {96, 0, 32, 32}
+        {45, 30, 182, 218}, {256, 31, 182, 213}, {463, 40, 176, 201}, {667, 28, 179, 219}
     };
-    float escalaCaveira = 1.2f;
-    // Sprite do laser (3ª imagem de poderes.png)
-    Rectangle srcRaio = {64, 64, 32, 32}; // 3ª imagem (x=64, y=64)
+    
+    // Sprite do laser (3ª imagem de poderes.png - coordenada exata)
+    Rectangle srcRaio = {497, 58, 129, 108}; // 3ª imagem com coordenadas precisas
     float escalaRaio = 1.0f;
     // Ossos brancos
     for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
@@ -1110,26 +1280,81 @@ void desenharObstaculos(void) {
             if (obstaculosRoxos[i].ativo) {
                 float xCaveira = obstaculosRoxos[i].posicao.x;
                 float yCaveira = obstaculosRoxos[i].posicao.y;
-                int idxCaveira = i % 4;
-                // Desenha caveira BEM MAIOR e na frente do laser
+                int idxCaveira = obstaculosRoxos[i].frameAnimacao; // Usa o frame atual da animação
+                float escala = obstaculosRoxos[i].escala; // Usa a escala definida no obstáculo
+                
+                // Desenha a caveira com a animação correta
+                float pulseEffect = 1.0f;
+                Color caveiraColor = WHITE;
+                
+                // Quando está atirando, faz a caveira pulsar e brilhar em vermelho
+                if (obstaculosRoxos[i].atirando) {
+                    pulseEffect = 1.0f + 0.2f * sinf(GetTime() * 15.0f); // Pulsação rápida
+                    caveiraColor = (Color){255, 180, 180, 255}; // Tom avermelhado
+                }
+                
+                // Aplica o efeito de pulsação na escala
+                float finalScale = escala * pulseEffect;
+                
+                // Desenha a caveira com tamanho apropriado para o sprite maior
+                float frameWidth = srcCaveiras2[idxCaveira].width;
+                float frameHeight = srcCaveiras2[idxCaveira].height;
+                float spriteScale = 0.25f * finalScale; // Escala menor devido ao tamanho real do sprite
+                
                 DrawTexturePro(
                     texturaCaveiras2,
                     srcCaveiras2[idxCaveira],
-                    (Rectangle){xCaveira - 24*escalaCaveira, yCaveira - 24*escalaCaveira, 48*escalaCaveira, 48*escalaCaveira},
+                    (Rectangle){
+                        xCaveira - (frameWidth * spriteScale) / 2, 
+                        yCaveira - (frameHeight * spriteScale) / 2, 
+                        frameWidth * spriteScale, 
+                        frameHeight * spriteScale
+                    },
                     (Vector2){0,0},
                     0,
-                    WHITE
+                    caveiraColor
                 );
-                // Desenha o laser contínuo (raio) a partir da caveira
-                for (int seg = 0; seg < 8; seg++) {
-                    DrawTexturePro(
-                        texturaPoderes,
-                        srcRaio,
-                        (Rectangle){xCaveira + 24 + seg*28, yCaveira - 16*escalaRaio, 32*escalaRaio, 32*escalaRaio},
-                        (Vector2){0,0},
-                        0,
-                        WHITE
-                    );
+                
+                // Só desenha o laser se a caveira estiver no frame de "atirando" (atirando == true)
+                if (obstaculosRoxos[i].atirando) {
+                    // A quarta animação (índice 3) é onde o laser sairá exatamente abaixo da caveira
+                    // Ajustamos offsets para centralizar o laser abaixo da caveira
+                    float offsetY = 25.0f * escala; // Ajuste para onde o laser começa, logo abaixo da caveira
+                    
+                    // Sem efeito de glow ao redor da caveira para não ter o círculo roxo
+                    
+                    // Duração variável do laser baseada na animação
+                    float laserAlpha = 255 * (0.7f + 0.3f * sinf(GetTime() * 10.0f));
+                    Color laserColor = (Color){255, 255, 255, (unsigned char)laserAlpha};
+                    
+                    // Ajusta a escala do laser para o tamanho real do sprite de poderes.png
+                    float laserScale = 0.3f; // Escala reduzida para o tamanho real do sprite
+                    float laserAngle = 90.0f; // Rotação de 90 graus para fazer o laser vertical
+                    
+                    // Calcula largura e altura do laser rotacionado
+                    float laserWidth = srcRaio.width * laserScale;
+                    float laserHeight = srcRaio.height * laserScale;
+                    
+                    // Segmentos do laser vertical
+                    int numSegments = 6; // Reduzido para não preencher demais
+                    float segmentSpacing = 32.0f; // Espaçamento entre segmentos
+                    
+                    for (int seg = 0; seg < numSegments; seg++) {
+                        // O laser sai VERTICALMENTE da caveira, de cima para baixo
+                        DrawTexturePro(
+                            texturaPoderes,
+                            srcRaio,
+                            (Rectangle){
+                                xCaveira - laserHeight/2, // Centralizado horizontalmente
+                                yCaveira + offsetY + seg*segmentSpacing, // Vai descendo verticalmente
+                                laserWidth, 
+                                laserHeight
+                            },
+                            (Vector2){laserWidth/2, 0}, // Origem da rotação no centro do topo
+                            laserAngle, // Rotaciona para ficar vertical
+                            laserColor
+                        );
+                    }
                 }
             }
         }

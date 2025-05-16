@@ -62,6 +62,9 @@ typedef struct {
     float escala; // Para variação de tamanho
     float rotacao; // Para rotação dinâmica
     int comprimento; // Comprimento do obstáculo
+    int frameAnimacao; // Índice da frame atual na animação (para caveiras animadas)
+    float tempoAnimacao; // Controle de tempo para animações
+    bool atirando; // Se está atirando o raio (para caveiras)
 } Obstaculo;
 
 // Estrutura para os projéteis dos bosses
