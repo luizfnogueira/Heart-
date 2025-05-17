@@ -5,6 +5,10 @@
 #include "raylib.h"
 #include <string.h>
 #include "obstaculo_sprites.h"
+#include "raymath.h"
+
+
+void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano);
 
 // Variáveis globais do jogo
 Vector2 posicaoCoracao;
@@ -15,6 +19,8 @@ NivelDificuldade dificuldadeAtual = NORMAL;
 Texture2D texturaCoracao;
 Texture2D texturaOssoReto;
 Texture2D texturaOssoHorizontal;
+float tempoInvulnerabilidade = 0.0f;
+
 
 // Corrigido: variáveis de tempo de onda/obstáculo
 static float tempoUltimaOnda = 0.0f;
@@ -144,27 +150,30 @@ void gerarObstaculoBrancoAleatorio(void) {
         if (!obstaculosBrancos[i].ativo) {
             obstaculosBrancos[i].ativo = true;
             obstaculosBrancos[i].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA;
-            // Sorteia tipo de osso
+
             bool vertical = (GetRandomValue(0, 1) == 1);
+
+            float alturaOsso;
+            float minY, maxY;
+
             if (vertical) {
                 obstaculosBrancos[i].comprimento = 10; // vertical
-                float alturaOsso = 153 * escalaVertical;
-                float minY = AREA_JOGO_Y + alturaOsso/2 + 5;
-                float maxY = AREA_JOGO_Y + AREA_JOGO_ALTURA - alturaOsso/2 - 5;
-                obstaculosBrancos[i].posicao.y = GetRandomValue((int)minY, (int)maxY);
+                alturaOsso = 153 * escalaVertical;
             } else {
                 obstaculosBrancos[i].comprimento = 30; // horizontal
-                float alturaOsso = 13 * escalaVertical;
-                float minY = AREA_JOGO_Y + alturaOsso/2 + 5;
-                float maxY = AREA_JOGO_Y + AREA_JOGO_ALTURA - alturaOsso/2 - 5;
-                obstaculosBrancos[i].posicao.y = GetRandomValue((int)minY, (int)maxY);
+                alturaOsso = 13 * escalaVertical;
             }
+
+            minY = AREA_JOGO_Y + alturaOsso / 2 + 5;
+            maxY = AREA_JOGO_Y + AREA_JOGO_ALTURA - alturaOsso / 2 - 5;
+            int sorteioY = GetRandomValue((int)minY, (int)maxY);
+            obstaculosBrancos[i].posicao.y = Clamp((float)sorteioY, minY, maxY);
+
             obstaculosBrancos[i].velocidade = velocidadeBase * (1.5f + GetRandomValue(0, 10) / 10.0f);
             break;
         }
     }
 }
-
 // Gera uma onda de ossos alinhados, estilo Sans
 void gerarOndaDeOssos(void) {
     int quantidade = 8;
@@ -310,75 +319,74 @@ void limparObstaculosEPrepararProximaFase(void) {
 
 bool atualizarJogo(void) {
     // Verifica transições de fase
-    if (pontuacao >= 200 && faseAtual == 1) {
+    if (pontuacao >= 1000 && faseAtual == 1) {
         faseAtual = 2;
         mudarParaFase2();
     }
-    
-    if (pontuacao >= 400 && faseAtual == 2) {
+
+    if (pontuacao >= 1500 && faseAtual == 2) {
         faseAtual = 3;
         mudarParaFase3();
     }
-    
-    if (pontuacao >= 1000 && faseAtual == 3) {
+
+    if (pontuacao >= 2000 && faseAtual == 3) {
         return false; // Jogo vencido
     }
-    
+
     // Atualiza o coração
     atualizarCoracao();
-    
+
     // Gera e atualiza obstáculos com frequência aumentada baseada na fase
     contadorObstaculos++;
     int intervaloAjustado = INTERVALO_GERACAO_OBSTACULO - (faseAtual * 5);
     if (intervaloAjustado < 5) intervaloAjustado = 5;
-    
+
     float tempoAtual = GetTime();
     if (faseAtual == 1) {
         // Fase 1: ossos surgem aleatoriamente
-        float intervalo = 0.5f + (GetRandomValue(0, 10) / 20.0f); // 0.5s a 1s
+        float intervalo = 1.0f + (GetRandomValue(0, 10) / 15.0f); // 1s a 1.67s
         if (tempoAtual - tempoUltimoObstaculo > intervalo) {
             gerarObstaculoBrancoAleatorio();
             tempoUltimoObstaculo = tempoAtual;
         }
     } else if (faseAtual == 2) {
         // Fase 2: caveiras animadas que disparam lasers
-        float intervalo = 1.0f + (GetRandomValue(0, 10) / 10.0f); // 1s a 2s
+        float intervalo = 1.5f + (GetRandomValue(0, 10) / 10.0f); // 1.5s a 2.5s
         if (tempoAtual - tempoUltimoObstaculo > intervalo) {
             tempoUltimoObstaculo = tempoAtual;
         }
-    } else if (tempoAtual - tempoUltimaOnda > 1.2f) {
+    } else if (tempoAtual - tempoUltimaOnda > 2.0f) {
         gerarOndaDeOssos();
         tempoUltimaOnda = tempoAtual;
     }
-    
+
     // Atualiza os obstáculos
     atualizarObstaculos();
-    
+
     // Atualiza os bosses
     atualizarBosses();
-    
+
     // Atualiza os projéteis
     atualizarProjeteis();
-    
+
     // Detecta colisões
     bool colisao = detectarColisoes();
-    
+
     // Incrementa a pontuação com o tempo
     pontuacao += PONTOS_POR_FRAME;
-    
+
     // Verifica se é hora de ativar o boss baseado na pontuação
     if (!colisao && ((faseAtual == 1 && pontuacao >= 1000) ||
-        (faseAtual == 2 && pontuacao >= 3000) ||
-        (faseAtual == 3 && pontuacao >= 6000))) {
-        
+                     (faseAtual == 2 && pontuacao >= 3000) ||
+                     (faseAtual == 3 && pontuacao >= 6000))) {
         modoChefao = true;
         bossAtual = faseAtual - 1;
         ativarBossDaFase(faseAtual);
     }
-    
+
     // Atualiza a fase com base na pontuação
     atualizarFase();
-    
+
     // Atualiza o efeito visual de dano
     if (efeitoDanoTempo > 0.0f) {
         efeitoDanoTempo -= GetFrameTime();
@@ -386,25 +394,32 @@ bool atualizarJogo(void) {
             efeitoDanoTempo = 0.0f;
         }
     }
-    
+
     // Atualiza os números de dano
     atualizarNumerosDano();
-    
+
+    // Atualiza tempo de invulnerabilidade
+    if (tempoInvulnerabilidade > 0.0f) {
+        tempoInvulnerabilidade -= GetFrameTime();
+        if (tempoInvulnerabilidade < 0.0f)
+            tempoInvulnerabilidade = 0.0f;
+    }
+
     // Verifica se o jogador perdeu
     if (vidaCoracao <= 0) {
         return false;
     }
-    
+
     // Teclas especiais
     if (IsKeyPressed(KEY_F1)) {
         dificuldadeAtual = (dificuldadeAtual + 1) % 4;
         definirDificuldade(dificuldadeAtual);
     }
-    
+
     if (IsKeyPressed(KEY_F2)) {
         efeitosVisuaisAvancados = !efeitosVisuaisAvancados;
     }
-    
+
     return true;
 }
 
@@ -452,23 +467,21 @@ void gerarObstaculoBranco(void) {
     }
 }
 
+// --- Adição ao final de atualizarObstaculosBrancos ---
 void atualizarObstaculosBrancos(void) {
     for (int i = 0; i < 50; i++) {
         if (obstaculosBrancos[i].ativo) {
             obstaculosBrancos[i].posicao.x -= obstaculosBrancos[i].velocidade;
-            
             if (faseAtual >= 2) {
                 float tempo = GetTime();
                 obstaculosBrancos[i].posicao.y += sinf(tempo * 3.0f + i) * 1.5f;
-                
                 if (obstaculosBrancos[i].posicao.y < AREA_JOGO_Y + 10) {
                     obstaculosBrancos[i].posicao.y = AREA_JOGO_Y + 10;
                 }
-                if (obstaculosBrancos[i].posicao.y > AREA_JOGO_Y + AREA_JOGO_ALTURA - 10 - 20) {
-                    obstaculosBrancos[i].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA - 10 - 20;
+                if (obstaculosBrancos[i].posicao.y > AREA_JOGO_Y + AREA_JOGO_ALTURA - 30) {
+                    obstaculosBrancos[i].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA - 30;
                 }
             }
-            
             if (faseAtual >= 3 && i % 3 == 0) {
                 if (obstaculosBrancos[i].posicao.y < posicaoCoracao.y) {
                     obstaculosBrancos[i].posicao.y += 1.0f;
@@ -476,13 +489,17 @@ void atualizarObstaculosBrancos(void) {
                     obstaculosBrancos[i].posicao.y -= 1.0f;
                 }
             }
-            
-            if (obstaculosBrancos[i].posicao.x < AREA_JOGO_X) {
+
+            if (obstaculosBrancos[i].posicao.x < AREA_JOGO_X - 60 ||
+                obstaculosBrancos[i].posicao.x > AREA_JOGO_X + AREA_JOGO_LARGURA + 60 ||
+                obstaculosBrancos[i].posicao.y < AREA_JOGO_Y - 60 ||
+                obstaculosBrancos[i].posicao.y > AREA_JOGO_Y + AREA_JOGO_ALTURA + 60) {
                 obstaculosBrancos[i].ativo = false;
             }
         }
     }
 }
+
 
 void atualizarObstaculos(void) {
     atualizarObstaculosBrancos();
@@ -500,9 +517,54 @@ void atualizarFase(void) {
 
 bool detectarColisoes(void) {
     bool colisao = false;
-    
-    // Removido: Bloco de detecção de colisão com obstáculos roxos e caveiras/laser em detectarColisoes
-    
+
+    Rectangle retanguloCoracao = {
+        posicaoCoracao.x - 6,
+        posicaoCoracao.y - 6,
+        12,
+        12
+    };
+
+    float escalaVertical = 0.35f;
+    float alturaVertical = 153 * escalaVertical;
+    float larguraVertical = 62 * escalaVertical;
+
+    float alturaHorizontal = 13 * escalaVertical;
+    float larguraHorizontal = 62 * escalaVertical;
+
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
+        if (obstaculosBrancos[i].ativo) {
+            Rectangle retanguloOsso;
+
+            if (obstaculosBrancos[i].comprimento == 10) {
+                // Osso vertical
+                retanguloOsso = (Rectangle){
+                    obstaculosBrancos[i].posicao.x - larguraVertical / 2,
+                    obstaculosBrancos[i].posicao.y - alturaVertical / 2,
+                    larguraVertical,
+                    alturaVertical
+                };
+            } else {
+                // Osso horizontal
+                retanguloOsso = (Rectangle){
+                    obstaculosBrancos[i].posicao.x - larguraHorizontal / 2,
+                    obstaculosBrancos[i].posicao.y - alturaHorizontal / 2,
+                    larguraHorizontal,
+                    alturaHorizontal
+                };
+            }
+
+            if (tempoInvulnerabilidade <= 0.0f && CheckCollisionRecs(retanguloCoracao, retanguloOsso)) {
+                vidaCoracao -= 5;
+                efeitoDanoTempo = 0.5f;
+                ultimoDano = 5.0f;
+                adicionarNumeroDano(5, posicaoCoracao, true);
+                colisao = true;
+                tempoInvulnerabilidade = 0.5f;
+            }
+        }
+    }
+
     return colisao;
 }
 
@@ -755,33 +817,52 @@ void desenharCoracao(void) {
     // ...rastro e efeitos, se necessário...
 }
 
+// --- Correção na função desenharObstaculos (apenas trecho alterado) ---
 void desenharObstaculos(void) {
-    // Região correta da spritesheet ossos.png
-    Rectangle srcVertical = {53, 36, 62, 153}; // Osso vertical (em pé)
-    float escalaVertical = 0.35f;  // Escala fiel ao Undertale
+    Rectangle srcVertical = {53, 36, 62, 153};
+    float escalaVertical = 0.35f;
     for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         if (obstaculosBrancos[i].ativo) {
             float xOsso = obstaculosBrancos[i].posicao.x;
-            float yOsso;
-            if (faseAtual == 2) {
-                // Alinha a base do osso ao chão
-                yOsso = AREA_JOGO_Y + AREA_JOGO_ALTURA - (srcVertical.height * escalaVertical) / 2;
-            } else {
-                yOsso = obstaculosBrancos[i].posicao.y;
-            }
-            if (obstaculosBrancos[i].comprimento < 20) {
+            float yOsso = obstaculosBrancos[i].posicao.y;
+
+            if (obstaculosBrancos[i].comprimento == 10) {
+                // Osso vertical
                 DrawTexturePro(
                     texturaOssoReto,
                     srcVertical,
-                    (Rectangle){xOsso - (srcVertical.width * escalaVertical) / 2, yOsso - (srcVertical.height * escalaVertical) / 2, srcVertical.width * escalaVertical, srcVertical.height * escalaVertical},
+                    (Rectangle){xOsso - (srcVertical.width * escalaVertical) / 2, yOsso - (srcVertical.height * escalaVertical) / 2,
+                                srcVertical.width * escalaVertical, srcVertical.height * escalaVertical},
                     (Vector2){0,0},
                     0,
                     WHITE
                 );
             }
+
+            // Hitbox (debug)
+            Rectangle ret;
+            if (obstaculosBrancos[i].comprimento == 10) {
+                ret = (Rectangle){
+                    obstaculosBrancos[i].posicao.x - 10,
+                    obstaculosBrancos[i].posicao.y - 27,
+                    20,
+                    54
+                };
+            } else {
+                float largura = 62 * 0.35f;
+                float altura  = 13 * 0.35f;
+                ret = (Rectangle){
+                    obstaculosBrancos[i].posicao.x - largura / 2,
+                    obstaculosBrancos[i].posicao.y - altura / 2,
+                    largura,
+                    altura
+                };
+            }
+            DrawRectangleLines((int)ret.x, (int)ret.y, (int)ret.width, (int)ret.height, RED);
         }
     }
 }
+
 
 void inicializarNumerosDano(void) {
     for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
