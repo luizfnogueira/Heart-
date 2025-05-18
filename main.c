@@ -1,5 +1,3 @@
-
-
 #include "raylib.h"
 #include "menu.h"
 #include "jogo.h"
@@ -46,8 +44,8 @@ int main(void) {
     
     while (!WindowShouldClose()) {
         // Atualização de áudio
-        if (IsMusicStreamPlaying(backgroundMusic)) UpdateMusicStream(backgroundMusic);
-        
+        UpdateMusicStream(backgroundMusic); // Garantir que a música seja atualizada em todos os quadros
+
         // Lógica de tela
         switch (telaAtual) {
             case TELA_MENU:
@@ -79,7 +77,10 @@ int main(void) {
                 StopMusicStream(backgroundMusic);
                 telaAtual = atualizarTelaGameOver(listaPontuacoes);
                 if (telaAtual == TELA_JOGO) {
-                    PlayMusicStream(backgroundMusic);
+                    // Verifica se a música não está tocando antes de iniciar
+                    if (!IsMusicStreamPlaying(backgroundMusic)) {
+                        PlayMusicStream(backgroundMusic);
+                    }
                     inicializarJogo();
                 }
                 break;

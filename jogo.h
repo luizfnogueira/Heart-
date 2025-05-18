@@ -3,6 +3,7 @@
 #define JOGO_H
 
 #include "raylib.h"
+#include "charada.h"  // Incluir o sistema de charadas
 
 // Constantes do jogo
 #define LARGURA_TELA 800

@@ -1,20 +1,18 @@
 # Nome do executável
 TARGET = heart
 
-# Fontes do jogo (removidas referências à IA)
-SRCS = main.c menu.c jogo.c pontuacao.c boss.c
+# Fontes do jogo
+SRCS = main.c menu.c jogo.c pontuacao.c boss.c charada.c
 
 # Detectar sistema operacional
-ifeq ($(OS),Windows_NT)
-    # Bibliotecas para Windows
-    LIBS = -lraylib -lopengl32 -lgdi32 -lwinmm
+ifeq ($(OS),Windows_NT)    # Bibliotecas para Windows
+    LIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lcurl
     # Comando para limpar
     RM = del
     # Extensão do executável
     EXT = .exe
-else
-    # Bibliotecas para Linux
-    LIBS = -lGL -lm -lpthread -ldl -lrt -lX11
+else    # Bibliotecas para Linux
+    LIBS = -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl
     # Comando para limpar
     RM = rm -f
     # Extensão do executável

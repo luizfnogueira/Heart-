@@ -116,9 +116,12 @@ void inicializarJogo(void) {
     // Inicializa o coração e obstáculos
     inicializarCoracao();
     inicializarObstaculos();
-    
-    // Inicializa avisos de laser
+      // Inicializa avisos de laser
     limparAvisosLaser();
+    
+    // Inicializa o sistema de charadas
+    inicializarSistemaCharadas();
+    modoCharada = false;
 }
 
 // --- Liberar textura do osso grande do topo ao fechar o jogo ---
@@ -126,6 +129,9 @@ void liberarRecursosJogo(void) {
     UnloadTexture(texturaCoracao);
     UnloadTexture(texturaOssoReto);
     UnloadTexture(texturaOssoHorizontal);
+    
+    // Liberar recursos do sistema de charadas
+    liberarRecursosCharada();
 }
 
 // Inicializa a posição do coração
@@ -266,7 +272,7 @@ void sansFightFase(void) {
             float alturaOsso = (obstaculosBrancos[i].comprimento == 10) ? 
                                153 * escalaVertical : 13 * escalaVertical;
             
-            // Remove qualquer obstáculo que esteja completamente fora da área de jogo com uma margem de segurança
+            // Removes any obstacle that is completely outside the game area with a safety margin
             if (obstaculosBrancos[i].posicao.x - larguraOsso/2 > AREA_JOGO_X + AREA_JOGO_LARGURA + margemSeguranca ||
                 obstaculosBrancos[i].posicao.x + larguraOsso/2 < AREA_JOGO_X - margemSeguranca ||
                 obstaculosBrancos[i].posicao.y - alturaOsso/2 > AREA_JOGO_Y + AREA_JOGO_ALTURA + margemSeguranca ||
@@ -406,19 +412,31 @@ void limparObstaculosEPrepararProximaFase(void) {
 
 
 bool atualizarJogo(void) {
+    // Verificar se estamos no modo charada
+    if (modoCharada) {
+        return atualizarTelaCharada(); // Retorna false se o jogador falhar na charada
+    }
+    
     // Verifica transições de fase
-    if (pontuacao >= 1000 && faseAtual == 1) {
-        faseAtual = 2;
-        mudarParaFase2();
+    if (pontuacao >= 200 && faseAtual == 1) {
+        // Ativar charada para passar para a fase 2
+        gerarNovaCharada(2);
+        modoCharada = true;
+        return true;
     }
 
-    if (pontuacao >= 1500 && faseAtual == 2) {
-        faseAtual = 3;
-        mudarParaFase3();
+    if (pontuacao >= 400 && faseAtual == 2) {
+        // Ativar charada para passar para a fase 3
+        gerarNovaCharada(3);
+        modoCharada = true;
+        return true;
     }
 
     if (pontuacao >= 2000 && faseAtual == 3) {
-        return false; // Jogo vencido
+        // Charada final (opcional)
+        gerarNovaCharada(4); // Charada de vitória
+        modoCharada = true;
+        return true;
     }
 
     // Atualiza o coração
@@ -622,9 +640,9 @@ void atualizarObstaculos(void) {
                 obstaculosBrancos[i].posicao.x - larguraReal/2 > AREA_JOGO_X + AREA_JOGO_LARGURA ||
                 obstaculosBrancos[i].posicao.y > AREA_JOGO_Y + AREA_JOGO_ALTURA + 30 ||
                 obstaculosBrancos[i].posicao.y < AREA_JOGO_Y - 30) {
-                
-                // Desativa o obstáculo quando estiver completamente fora da área
-                obstaculosBrancos[i].ativo = false;            }
+                  // Desativa o obstáculo quando estiver completamente fora da área
+                obstaculosBrancos[i].ativo = false;
+            }
         }
     }
 }
@@ -740,6 +758,13 @@ void desenharJogo(void) {
     atualizarEscalaTela();
     BeginDrawing();
     ClearBackground(BLACK);
+    
+    // Se estivermos no modo charada, desenha a tela de charada
+    if (modoCharada) {
+        desenharTelaCharada();
+        EndDrawing();
+        return;
+    }
     BeginAreaJogoComEscala();
     // Desenha o fundo da fase atual
     Color corFundo;
@@ -924,6 +949,12 @@ void desenharJogo(void) {
         20, 
         (Color){255, 255, 0, 255}
     );
+    
+    // Exibir pergunta da charada, se o modo charada estiver ativo
+    if (modoCharada) {
+        DrawRectangle(AREA_JOGO_X + 10, AREA_JOGO_Y + 50, AREA_JOGO_LARGURA - 20, 100, (Color){0, 0, 0, 180});
+        DrawText(charadaAtual.pergunta, AREA_JOGO_X + 20, AREA_JOGO_Y + 60, 20, WHITE);
+    }
 }
 
 void desenharCoracao(void) {
