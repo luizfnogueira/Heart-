@@ -6,13 +6,13 @@ SRCS = main.c menu.c jogo.c pontuacao.c boss.c charada.c
 
 # Detectar sistema operacional
 ifeq ($(OS),Windows_NT)    # Bibliotecas para Windows
-    LIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lcurl
+    LIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lcurl -ljson-c
     # Comando para limpar
     RM = del
     # Extensão do executável
     EXT = .exe
 else    # Bibliotecas para Linux
-    LIBS = -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl
+    LIBS = -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl -ljson-c
     # Comando para limpar
     RM = rm -f
     # Extensão do executável

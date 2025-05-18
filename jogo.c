@@ -15,7 +15,7 @@ Vector2 posicaoCoracao;
 float vidaCoracao = 200.0f;
 float pontuacao = 0.0f;
 int faseAtual = 1;
-NivelDificuldade dificuldadeAtual = NORMAL;
+NivelDificuldade nivelDificuldade = NORMAL;
 Texture2D texturaCoracao;
 Texture2D texturaOssoReto;
 Texture2D texturaOssoHorizontal;
@@ -95,7 +95,7 @@ void inicializarJogo(void) {
     velocidadeBase = 2.5f;
     velocidadeCoracao = VELOCIDADE_CORACAO;
     modoChefao = true;
-    dificuldadeAtual = NORMAL;
+    nivelDificuldade = NORMAL;
     bosses[0].ativo = true;
 
     // Carregar sprite sheet do Undertale (coração)
@@ -518,8 +518,8 @@ bool atualizarJogo(void) {
 
     // Teclas especiais
     if (IsKeyPressed(KEY_F1)) {
-        dificuldadeAtual = (dificuldadeAtual + 1) % 4;
-        definirDificuldade(dificuldadeAtual);
+        nivelDificuldade = (nivelDificuldade + 1) % 4;
+        definirDificuldade(nivelDificuldade);
     }
 
     if (IsKeyPressed(KEY_F2)) {
@@ -530,7 +530,7 @@ bool atualizarJogo(void) {
 }
 
 void definirDificuldade(NivelDificuldade nivel) {
-    dificuldadeAtual = nivel;
+    nivelDificuldade = nivel;
 }
 
 // Fase 2: mecânica de chão estilo Undertale

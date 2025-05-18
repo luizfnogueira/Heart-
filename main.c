@@ -43,8 +43,10 @@ int main(void) {
     inicializarBosses();
     
     while (!WindowShouldClose()) {
-        // Atualização de áudio
-        UpdateMusicStream(backgroundMusic); // Garantir que a música seja atualizada em todos os quadros
+        // Atualização de áudio - Chamada única para UpdateMusicStream em cada quadro
+        if (IsMusicStreamPlaying(backgroundMusic)) {
+            UpdateMusicStream(backgroundMusic);
+        }
 
         // Lógica de tela
         switch (telaAtual) {
