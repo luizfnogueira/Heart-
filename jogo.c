@@ -149,6 +149,7 @@ void gerarObstaculoBrancoAleatorio(void) {
     for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         if (!obstaculosBrancos[i].ativo) {
             obstaculosBrancos[i].ativo = true;
+            // Limitamos a posição x para estar EXATAMENTE no limite direito da área visível (sem ultrapassar)
             obstaculosBrancos[i].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA;
 
             bool vertical = (GetRandomValue(0, 1) == 1);
@@ -170,6 +171,11 @@ void gerarObstaculoBrancoAleatorio(void) {
             obstaculosBrancos[i].posicao.y = Clamp((float)sorteioY, minY, maxY);
 
             obstaculosBrancos[i].velocidade = velocidadeBase * (1.5f + GetRandomValue(0, 10) / 10.0f);
+            
+            // Garantir que velocidade seja negativa (para esquerda) para que o obstáculo entre no campo de visão
+            if (obstaculosBrancos[i].velocidade > 0) {
+                obstaculosBrancos[i].velocidade *= -1;
+            }
             break;
         }
     }
@@ -181,11 +187,35 @@ void gerarOndaDeOssos(void) {
     float alturaOsso = 0;
     float espacamento = 0;
     float yAtual = AREA_JOGO_Y + 20;
+    
+    // Determinar a altura máxima para garantir que todos os ossos fiquem dentro da área visível
+    float alturaAreaVisivel = AREA_JOGO_ALTURA - 40; // 20px de margem em cima e embaixo
+    float alturaMaximaVertical = 153 * escalaVertical;
+    float alturaMaximaHorizontal = 13 * escalaVertical;
+    float alturaMaximaTotal = 0;
+    
+    // Calcular a altura total necessária para todos os ossos com espaçamento
+    for (int i = 0; i < quantidade; i++) {
+        if (i % 2 == 0) {
+            alturaMaximaTotal += alturaMaximaHorizontal + 10;
+        } else {
+            alturaMaximaTotal += alturaMaximaVertical + 10;
+        }
+    }
+    
+    // Ajustar a quantidade se necessário para caber na área visível
+    if (alturaMaximaTotal > alturaAreaVisivel) {
+        quantidade = (int)(quantidade * (alturaAreaVisivel / alturaMaximaTotal));
+        if (quantidade < 3) quantidade = 3; // Garantir pelo menos alguns ossos
+    }
+    
     for (int i = 0; i < quantidade; i++) {
         for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
             if (!obstaculosBrancos[j].ativo) {
                 obstaculosBrancos[j].ativo = true;
+                // Posicionar exatamente no limite direito da área de jogo
                 obstaculosBrancos[j].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA;
+                
                 // Alterna entre osso horizontal e vertical
                 if (i % 2 == 0) {
                     obstaculosBrancos[j].comprimento = 30; // horizontal
@@ -194,11 +224,21 @@ void gerarOndaDeOssos(void) {
                     obstaculosBrancos[j].comprimento = 10; // vertical
                     alturaOsso = 153 * escalaVertical;
                 }
+                
                 // Espaçamento mínimo de 10px entre ossos
                 espacamento = alturaOsso + 10;
-                obstaculosBrancos[j].posicao.y = yAtual + alturaOsso / 2;
+                
+                // Verificar se a posição Y está dentro dos limites da área de jogo
+                float yPosicao = yAtual + alturaOsso / 2;
+                if (yPosicao > AREA_JOGO_Y + AREA_JOGO_ALTURA - alturaOsso/2) {
+                    yPosicao = AREA_JOGO_Y + AREA_JOGO_ALTURA - alturaOsso/2;
+                }
+                
+                obstaculosBrancos[j].posicao.y = yPosicao;
                 yAtual += espacamento;
-                obstaculosBrancos[j].velocidade = velocidadeBase * 1.7f;
+                
+                // Velocidade negativa para mover para a esquerda
+                obstaculosBrancos[j].velocidade = -velocidadeBase * 1.7f;
                 break;
             }
         }
@@ -213,52 +253,102 @@ static float sansIntervaloPadrao = 2.0f;
 void sansFightFase(void) {
     // Box de esquiva (área de movimento do coração)
     DrawRectangleLines(AREA_JOGO_X, AREA_JOGO_Y, AREA_JOGO_LARGURA, AREA_JOGO_ALTURA, (Color){255,255,255,180});
+    
+    // Margem de segurança para obstáculos (pixels além da borda da área de jogo)
+    float margemSeguranca = 50.0f;
+    
+    // Atualiza obstáculos (ossos) e remove obstáculos fora da área de jogo
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
+        if (obstaculosBrancos[i].ativo) {
+            float escalaVertical = 0.35f;
+            float larguraOsso = (obstaculosBrancos[i].comprimento == 10) ? 
+                               62 * escalaVertical : 62 * escalaVertical;
+            float alturaOsso = (obstaculosBrancos[i].comprimento == 10) ? 
+                               153 * escalaVertical : 13 * escalaVertical;
+            
+            // Remove qualquer obstáculo que esteja completamente fora da área de jogo com uma margem de segurança
+            if (obstaculosBrancos[i].posicao.x - larguraOsso/2 > AREA_JOGO_X + AREA_JOGO_LARGURA + margemSeguranca ||
+                obstaculosBrancos[i].posicao.x + larguraOsso/2 < AREA_JOGO_X - margemSeguranca ||
+                obstaculosBrancos[i].posicao.y - alturaOsso/2 > AREA_JOGO_Y + AREA_JOGO_ALTURA + margemSeguranca ||
+                obstaculosBrancos[i].posicao.y + alturaOsso/2 < AREA_JOGO_Y - margemSeguranca) {
+                
+                // Se o obstáculo estiver completamente fora da área, desativamos
+                obstaculosBrancos[i].ativo = false;
+                continue;
+            }
+              // Atualiza a posição com base na sua velocidade e tipo
+            if (obstaculosBrancos[i].comprimento == 10) {
+                // Ossos verticais se movem na direção da velocidade (normalmente para cima)
+                obstaculosBrancos[i].posicao.y += obstaculosBrancos[i].velocidade;
+            } else {
+                // Ossos horizontais se movem na direção da velocidade (normalmente para a esquerda)
+                obstaculosBrancos[i].posicao.x += obstaculosBrancos[i].velocidade;
+            }
+        }
+    }
+    
     // Ataques de ossos horizontais e verticais, padrões variam conforme a fase
     sansTempoAtaque += GetFrameTime();
     float intervaloBase = 1.2f - 0.2f * (faseAtual-1); // Fases mais avançadas = ataques mais rápidos
     if (intervaloBase < 0.5f) intervaloBase = 0.5f;
+    
     if (sansTempoAtaque > sansIntervaloPadrao * intervaloBase) {
         sansTempoAtaque = 0;
         // Mais padrões nas fases avançadas
         int maxPadrao = (faseAtual >= 3) ? 3 : 2;
         sansPadraoAtual = GetRandomValue(0, maxPadrao); // 0: horizontal, 1: vertical, 2: mista, 3: caveiras
         sansIntervaloPadrao = 1.0f + GetRandomValue(0, 10) / 10.0f;
-        if (sansPadraoAtual == 0) {
+          if (sansPadraoAtual == 0) {
             // Ossos horizontais subindo do chão
             for (int i = 0; i < 6 + faseAtual; i++) {
                 for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
                     if (!obstaculosBrancos[j].ativo) {
                         obstaculosBrancos[j].ativo = true;
-                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + 30 + i * 30;
-                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA + 30;
+                        // Garantir que as posições X estejam distribuídas dentro da área de jogo
+                        float minX = AREA_JOGO_X + 30;
+                        float maxX = AREA_JOGO_X + AREA_JOGO_LARGURA - 30;
+                        float spacing = (maxX - minX) / (6 + faseAtual);
+                        obstaculosBrancos[j].posicao.x = minX + i * spacing;
+                        // Posicionar exatamente no limite inferior da área de jogo
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA;
+                        // Velocidade negativa para mover para cima
                         obstaculosBrancos[j].velocidade = -4.0f - GetRandomValue(0, 2) - faseAtual;
                         obstaculosBrancos[j].comprimento = 10; // vertical
                         break;
                     }
                 }
             }
-        } else if (sansPadraoAtual == 1) {
-            // Ossos verticais vindo da direita
+        } else if (sansPadraoAtual == 1) {            // Ossos verticais vindo da direita
             for (int i = 0; i < 5 + faseAtual; i++) {
                 for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
                     if (!obstaculosBrancos[j].ativo) {
                         obstaculosBrancos[j].ativo = true;
-                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA + 30;
-                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + 30 + i * 30;
+                        // Posicionar exatamente no limite direito da área visível
+                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA;
+                        // Garantir que o eixo Y esteja dentro dos limites visíveis
+                        float minY = AREA_JOGO_Y + 20;
+                        float maxY = AREA_JOGO_Y + AREA_JOGO_ALTURA - 20;
+                        float yPos = AREA_JOGO_Y + 30 + i * 30;
+                        obstaculosBrancos[j].posicao.y = Clamp(yPos, minY, maxY);
+                        // Velocidade negativa para mover para a esquerda
                         obstaculosBrancos[j].velocidade = -5.0f - GetRandomValue(0, 2) - faseAtual;
                         obstaculosBrancos[j].comprimento = 30; // horizontal
                         break;
                     }
                 }
             }
-        } else if (sansPadraoAtual == 2) {
-            // Misto: ossos de baixo e da direita
+        } else if (sansPadraoAtual == 2) {            // Misto: ossos de baixo e da direita
             for (int i = 0; i < 3 + faseAtual; i++) {
                 for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
                     if (!obstaculosBrancos[j].ativo) {
                         obstaculosBrancos[j].ativo = true;
-                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + 30 + i * 60;
-                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA + 30;
+                        // Garantir que as posições X estejam dentro da área de jogo
+                        float minX = AREA_JOGO_X + 30;
+                        float maxX = AREA_JOGO_X + AREA_JOGO_LARGURA - 30;
+                        float xPos = AREA_JOGO_X + 30 + i * 60;
+                        obstaculosBrancos[j].posicao.x = Clamp(xPos, minX, maxX);
+                         // Posicionar no limite inferior da área de jogo
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA;
                         obstaculosBrancos[j].velocidade = -6.0f - faseAtual;
                         obstaculosBrancos[j].comprimento = 10;
                         break;
@@ -269,8 +359,13 @@ void sansFightFase(void) {
                 for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
                     if (!obstaculosBrancos[j].ativo) {
                         obstaculosBrancos[j].ativo = true;
-                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA + 30;
-                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + 60 + i * 60;
+                        // Posicionar exatamente no limite direito da área de jogo
+                        obstaculosBrancos[j].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA;
+                        // Garantir que as posições Y estejam dentro da área de jogo
+                        float minY = AREA_JOGO_Y + 30;
+                        float maxY = AREA_JOGO_Y + AREA_JOGO_ALTURA - 30;
+                        float yPos = AREA_JOGO_Y + 60 + i * 60;
+                        obstaculosBrancos[j].posicao.y = Clamp(yPos, minY, maxY);
                         obstaculosBrancos[j].velocidade = -7.0f - faseAtual;
                         obstaculosBrancos[j].comprimento = 30;
                         break;
@@ -286,20 +381,13 @@ void sansFightFase(void) {
             if (obstaculosBrancos[i].comprimento == 10) {
                 // Ossos verticais sobem
                 obstaculosBrancos[i].posicao.y += obstaculosBrancos[i].velocidade;
-            }
-        }
-    }
-    // Atualiza obstáculos (ossos)
-    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
-        if (obstaculosBrancos[i].ativo) {
-            if (obstaculosBrancos[i].comprimento == 10) {
-                // Ossos verticais sobem
-                obstaculosBrancos[i].posicao.y += obstaculosBrancos[i].velocidade;
-                if (obstaculosBrancos[i].posicao.y < AREA_JOGO_Y - 40) obstaculosBrancos[i].ativo = false;
+                if (obstaculosBrancos[i].posicao.y < AREA_JOGO_Y - 40) 
+                    obstaculosBrancos[i].ativo = false;
             } else {
                 // Ossos horizontais vêm da direita
                 obstaculosBrancos[i].posicao.x += obstaculosBrancos[i].velocidade;
-                if (obstaculosBrancos[i].posicao.x < AREA_JOGO_X - 40) obstaculosBrancos[i].ativo = false;
+                if (obstaculosBrancos[i].posicao.x < AREA_JOGO_X - 40) 
+                    obstaculosBrancos[i].ativo = false;
             }
         }
     }
@@ -452,14 +540,27 @@ void gerarObstaculoBranco(void) {
     for (int i = 0; i < 50; i++) {
         if (!obstaculosBrancos[i].ativo) {
             obstaculosBrancos[i].ativo = true;
+            // Posicionar exatamente no limite direito da área de jogo
             obstaculosBrancos[i].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA;
-            obstaculosBrancos[i].posicao.y = AREA_JOGO_Y + GetRandomValue(0, AREA_JOGO_ALTURA - 30);
-            obstaculosBrancos[i].comprimento = GetRandomValue(10, 40);
-            obstaculosBrancos[i].velocidade = velocidadeBase * 1.5f + GetRandomValue(0, 200) / 100.0f;
             
+            // Garantir que a posição Y esteja dentro dos limites da área de jogo
+            float minY = AREA_JOGO_Y + 10;
+            float maxY = AREA_JOGO_Y + AREA_JOGO_ALTURA - 30;
+            float randomY = AREA_JOGO_Y + GetRandomValue(10, AREA_JOGO_ALTURA - 40);
+            obstaculosBrancos[i].posicao.y = Clamp(randomY, minY, maxY);
+            
+            // Definir comprimento adequado (10 para vertical, 30 para horizontal)
+            obstaculosBrancos[i].comprimento = (GetRandomValue(0, 1) == 0) ? 10 : 30;
+            
+            // Garantir que a velocidade seja sempre negativa (para esquerda)
+            obstaculosBrancos[i].velocidade = -velocidadeBase * 1.5f - GetRandomValue(0, 200) / 100.0f;
+            
+            // Adicionar variação para obstáculos que miram no jogador
             if (GetRandomValue(0, 10) < 3) {
                 obstaculosBrancos[i].velocidade *= 1.5f;
-                obstaculosBrancos[i].posicao.y = posicaoCoracao.y + GetRandomValue(-50, 50);
+                // Ajustar posição Y para se aproximar do jogador, mas ainda dentro dos limites da área
+                float targetY = posicaoCoracao.y + GetRandomValue(-50, 50);
+                obstaculosBrancos[i].posicao.y = Clamp(targetY, minY, maxY);
             }
             
             break;
@@ -502,7 +603,30 @@ void atualizarObstaculosBrancos(void) {
 
 
 void atualizarObstaculos(void) {
-    atualizarObstaculosBrancos();
+    float escalaVertical = 0.35f;
+    float larguraVertical = 62 * escalaVertical;    // Largura do osso vertical
+    float larguraHorizontal = 62 * escalaVertical;  // Largura do osso horizontal
+    
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
+        if (obstaculosBrancos[i].ativo) {
+            // Atualiza a posição do obstáculo com base na velocidade
+            obstaculosBrancos[i].posicao.x += obstaculosBrancos[i].velocidade;
+            
+            // Calcular a largura real do obstáculo com base no tipo
+            float larguraReal = (obstaculosBrancos[i].comprimento == 10) ? 
+                               larguraVertical : larguraHorizontal;
+                               
+            // Verificar se o obstáculo está completamente fora da área visível
+            // Usamos a largura real para garantir que não haja obstáculos invisíveis
+            if (obstaculosBrancos[i].posicao.x + larguraReal/2 < AREA_JOGO_X || 
+                obstaculosBrancos[i].posicao.x - larguraReal/2 > AREA_JOGO_X + AREA_JOGO_LARGURA ||
+                obstaculosBrancos[i].posicao.y > AREA_JOGO_Y + AREA_JOGO_ALTURA + 30 ||
+                obstaculosBrancos[i].posicao.y < AREA_JOGO_Y - 30) {
+                
+                // Desativa o obstáculo quando estiver completamente fora da área
+                obstaculosBrancos[i].ativo = false;            }
+        }
+    }
 }
 
 void atualizarFase(void) {
@@ -518,6 +642,7 @@ void atualizarFase(void) {
 bool detectarColisoes(void) {
     bool colisao = false;
 
+    // Define o retângulo de colisão do coração do jogador
     Rectangle retanguloCoracao = {
         posicaoCoracao.x - 6,
         posicaoCoracao.y - 6,
@@ -532,8 +657,27 @@ bool detectarColisoes(void) {
     float alturaHorizontal = 13 * escalaVertical;
     float larguraHorizontal = 62 * escalaVertical;
 
+    // Define os limites da área de jogo para verificação de visibilidade
+    float limiteEsquerdo = AREA_JOGO_X;
+    float limiteDireito = AREA_JOGO_X + AREA_JOGO_LARGURA;
+    float limiteSuperior = AREA_JOGO_Y;
+    float limiteInferior = AREA_JOGO_Y + AREA_JOGO_ALTURA;
+
     for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         if (obstaculosBrancos[i].ativo) {
+            // Ignora obstáculos que estão completamente fora da área visível
+            if (obstaculosBrancos[i].posicao.x < limiteEsquerdo - 40 || 
+                obstaculosBrancos[i].posicao.x > limiteDireito + 40 || 
+                obstaculosBrancos[i].posicao.y < limiteSuperior - 40 || 
+                obstaculosBrancos[i].posicao.y > limiteInferior + 40) {
+                
+                // Se um obstáculo estiver muito fora da área, vamos desativá-lo imediatamente
+                obstaculosBrancos[i].ativo = false;
+                continue;
+            }
+            
+            // Verifica se o obstáculo tem ALGUMA PARTE visível na área de jogo antes de testar colisão
+            bool temParteVisivel = false;
             Rectangle retanguloOsso;
 
             if (obstaculosBrancos[i].comprimento == 10) {
@@ -544,6 +688,12 @@ bool detectarColisoes(void) {
                     larguraVertical,
                     alturaVertical
                 };
+                
+                // Verifica se pelo menos uma parte do osso está na área visível
+                temParteVisivel = !(retanguloOsso.x > limiteDireito || 
+                                   retanguloOsso.x + retanguloOsso.width < limiteEsquerdo ||
+                                   retanguloOsso.y > limiteInferior || 
+                                   retanguloOsso.y + retanguloOsso.height < limiteSuperior);
             } else {
                 // Osso horizontal
                 retanguloOsso = (Rectangle){
@@ -552,9 +702,16 @@ bool detectarColisoes(void) {
                     larguraHorizontal,
                     alturaHorizontal
                 };
+                
+                // Verifica se pelo menos uma parte do osso está na área visível
+                temParteVisivel = !(retanguloOsso.x > limiteDireito || 
+                                   retanguloOsso.x + retanguloOsso.width < limiteEsquerdo ||
+                                   retanguloOsso.y > limiteInferior || 
+                                   retanguloOsso.y + retanguloOsso.height < limiteSuperior);
             }
 
-            if (tempoInvulnerabilidade <= 0.0f && CheckCollisionRecs(retanguloCoracao, retanguloOsso)) {
+            // Só testa colisão se o objeto tiver alguma parte visível
+            if (temParteVisivel && tempoInvulnerabilidade <= 0.0f && CheckCollisionRecs(retanguloCoracao, retanguloOsso)) {
                 vidaCoracao -= 5;
                 efeitoDanoTempo = 0.5f;
                 ultimoDano = 5.0f;
@@ -579,18 +736,10 @@ void mudarParaFase3(void) {
     limparObstaculosEPrepararProximaFase();
 }
 
-void desenharDebugSpriteSheet(void) {
-    // Desenha o sprite sheet no canto superior esquerdo
-    DrawTexture(texturaCoracao, 10, 10, WHITE);
-    // Novo retângulo de debug alinhado para (129, 12, 12, 11)
-    DrawRectangleLines(10 + 129, 10 + 12, 12, 11, RED);
-}
-
 void desenharJogo(void) {
     atualizarEscalaTela();
     BeginDrawing();
     ClearBackground(BLACK);
-    desenharDebugSpriteSheet();
     BeginAreaJogoComEscala();
     // Desenha o fundo da fase atual
     Color corFundo;
@@ -611,17 +760,11 @@ void desenharJogo(void) {
         Color corEfeito;
         if (ultimoDano > 0) {
             corEfeito = (Color){
-                255, 
-                0, 
-                0, 
-                (unsigned char)(150 * intensidadeEfeito)
+                255, 0, 0, (unsigned char)(150 * intensidadeEfeito)
             };
         } else {
             corEfeito = (Color){
-                100, 
-                255, 
-                100, 
-                (unsigned char)(120 * intensidadeEfeito)
+                100, 255, 100, (unsigned char)(120 * intensidadeEfeito)
             };
         }
         
@@ -819,46 +962,79 @@ void desenharCoracao(void) {
 
 // --- Correção na função desenharObstaculos (apenas trecho alterado) ---
 void desenharObstaculos(void) {
-    Rectangle srcVertical = {53, 36, 62, 153};
+    Rectangle srcVertical = {53, 36, 62, 153};      // Fonte para ossos verticais
+    Rectangle srcHorizontal = {53, 36, 62, 13};     // Fonte para ossos horizontais (ajustada para horizontal)
+    
     float escalaVertical = 0.35f;
+    
+    // Primeiro, defina os limites da área de jogo para verificação de visibilidade
+    float limiteEsquerdo = AREA_JOGO_X;
+    float limiteDireito = AREA_JOGO_X + AREA_JOGO_LARGURA;
+    float limiteSuperior = AREA_JOGO_Y;
+    float limiteInferior = AREA_JOGO_Y + AREA_JOGO_ALTURA;
+    
     for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         if (obstaculosBrancos[i].ativo) {
             float xOsso = obstaculosBrancos[i].posicao.x;
             float yOsso = obstaculosBrancos[i].posicao.y;
-
+            
+            // Verificar se o obstáculo está pelo menos parcialmente visível
+            // antes de tentar desenhá-lo
+            Rectangle areaObstaculo;
+            
             if (obstaculosBrancos[i].comprimento == 10) {
                 // Osso vertical
-                DrawTexturePro(
-                    texturaOssoReto,
-                    srcVertical,
-                    (Rectangle){xOsso - (srcVertical.width * escalaVertical) / 2, yOsso - (srcVertical.height * escalaVertical) / 2,
-                                srcVertical.width * escalaVertical, srcVertical.height * escalaVertical},
-                    (Vector2){0,0},
-                    0,
-                    WHITE
-                );
-            }
-
-            // Hitbox (debug)
-            Rectangle ret;
-            if (obstaculosBrancos[i].comprimento == 10) {
-                ret = (Rectangle){
-                    obstaculosBrancos[i].posicao.x - 10,
-                    obstaculosBrancos[i].posicao.y - 27,
-                    20,
-                    54
-                };
-            } else {
-                float largura = 62 * 0.35f;
-                float altura  = 13 * 0.35f;
-                ret = (Rectangle){
-                    obstaculosBrancos[i].posicao.x - largura / 2,
-                    obstaculosBrancos[i].posicao.y - altura / 2,
+                float largura = srcVertical.width * escalaVertical;
+                float altura = srcVertical.height * escalaVertical;
+                areaObstaculo = (Rectangle){
+                    xOsso - largura/2, 
+                    yOsso - altura/2,
                     largura,
                     altura
                 };
+                
+                // Só desenha se estiver pelo menos parcialmente visível
+                if (!(areaObstaculo.x > limiteDireito || 
+                      areaObstaculo.x + areaObstaculo.width < limiteEsquerdo ||
+                      areaObstaculo.y > limiteInferior || 
+                      areaObstaculo.y + areaObstaculo.height < limiteSuperior)) {
+                    
+                    DrawTexturePro(
+                        texturaOssoReto,
+                        srcVertical,
+                        areaObstaculo,
+                        (Vector2){0,0},
+                        0,
+                        WHITE
+                    );
+                }
+            } else {
+                // Osso horizontal
+                float largura = srcHorizontal.width * escalaVertical;
+                float altura = srcHorizontal.height * escalaVertical;
+                areaObstaculo = (Rectangle){
+                    xOsso - largura/2, 
+                    yOsso - altura/2,
+                    largura,
+                    altura
+                };
+                
+                // Só desenha se estiver pelo menos parcialmente visível
+                if (!(areaObstaculo.x > limiteDireito || 
+                      areaObstaculo.x + areaObstaculo.width < limiteEsquerdo ||
+                      areaObstaculo.y > limiteInferior || 
+                      areaObstaculo.y + areaObstaculo.height < limiteSuperior)) {
+                    
+                    DrawTexturePro(
+                        texturaOssoHorizontal,
+                        srcHorizontal,
+                        areaObstaculo,
+                        (Vector2){0,0},
+                        90.0f,  // Rotação para o osso horizontal
+                        WHITE
+                    );
+                }
             }
-            DrawRectangleLines((int)ret.x, (int)ret.y, (int)ret.width, (int)ret.height, RED);
         }
     }
 }
