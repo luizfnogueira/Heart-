@@ -109,111 +109,94 @@ bool desempilharNumeroDano(PilhaNumerosDano* pilha, NumeroDano* num) {
 }
 
 // =============================================================================
-// Implementação da Lista Duplamente Encadeada de Charadas
+// Implementação da Lista Duplamente Encadeada de Mensagens de Conforto
 // =============================================================================
 
-void inicializarListaCharadas(ListaCharadas* lista) {
+void inicializarListaMensagens(ListaMensagens* lista) {
     lista->inicio = NULL;
     lista->fim = NULL;
     lista->tamanho = 0;
 }
 
-bool listaCharadasVazia(ListaCharadas* lista) {
+bool listaMensagensVazia(ListaMensagens* lista) {
     return lista->tamanho == 0;
 }
 
-bool inserirCharada(ListaCharadas* lista, Charada charada) {
-    NodoCharada* novoNodo = (NodoCharada*)malloc(sizeof(NodoCharada));
+bool inserirMensagem(ListaMensagens* lista, MensagemConforto mensagem) {
+    NodoMensagem* novoNodo = (NodoMensagem*)malloc(sizeof(NodoMensagem));
     if (novoNodo == NULL) {
         return false; // Erro de alocação
     }
-    
-    novoNodo->charada = charada;
+
+    novoNodo->mensagem = mensagem;
     novoNodo->proximo = NULL;
-    novoNodo->anterior = NULL; // Inicializa o ponteiro anterior
-    
+    novoNodo->anterior = NULL;
+
     if (lista->inicio == NULL) {
-        // Lista vazia
         lista->inicio = novoNodo;
         lista->fim = novoNodo;
     } else {
-        // Adicionar no fim
-        novoNodo->anterior = lista->fim; // O novo nó aponta para o antigo fim
-        lista->fim->proximo = novoNodo; // O antigo fim aponta para o novo nó
-        lista->fim = novoNodo; // Atualiza o fim
+        novoNodo->anterior = lista->fim;
+        lista->fim->proximo = novoNodo;
+        lista->fim = novoNodo;
     }
-    
+
     lista->tamanho++;
     return true;
 }
 
-bool removerCharada(ListaCharadas* lista, int indice, Charada* charada) {
-    if (listaCharadasVazia(lista) || indice < 0 || indice >= lista->tamanho) {
+bool removerMensagem(ListaMensagens* lista, int indice, MensagemConforto* mensagem) {
+    if (listaMensagensVazia(lista) || indice < 0 || indice >= lista->tamanho) {
         return false;
     }
-    
-    NodoCharada* atual = lista->inicio;
-    
-    // Encontrar o nodo a ser removido
+
+    NodoMensagem* atual = lista->inicio;
     for (int i = 0; i < indice; i++) {
         atual = atual->proximo;
     }
-    
-    // Copiar dados para retorno
-    if (charada != NULL) {
-        *charada = atual->charada;
-    }
-    
-    // Remover o nodo
-    if (atual->anterior == NULL) {
-        // Remover o primeiro nodo
-        lista->inicio = atual->proximo;
-        if (lista->inicio != NULL) {
-            lista->inicio->anterior = NULL;
-        }
-    } else {
-        // Nodo do meio ou do fim
+
+    if (atual->anterior != NULL) {
         atual->anterior->proximo = atual->proximo;
+    } else {
+        lista->inicio = atual->proximo;
     }
-    
-    // Se não é o último, atualizar o anterior do próximo
+
     if (atual->proximo != NULL) {
         atual->proximo->anterior = atual->anterior;
     } else {
-        // É o último, atualizar o fim
         lista->fim = atual->anterior;
     }
-    
+
+    *mensagem = atual->mensagem;
     free(atual);
     lista->tamanho--;
-    
     return true;
 }
 
-void liberarListaCharadas(ListaCharadas* lista) {
-    NodoCharada* atual = lista->inicio;
+void liberarListaMensagens(ListaMensagens* lista) {
+    NodoMensagem* atual = lista->inicio;
     while (atual != NULL) {
-        NodoCharada* temp = atual;
-        atual = atual->proximo;
-        free(temp);
+        NodoMensagem* proximo = atual->proximo;
+        free(atual);
+        atual = proximo;
     }
-    
+
     lista->inicio = NULL;
     lista->fim = NULL;
     lista->tamanho = 0;
 }
 
-Charada* buscarCharada(ListaCharadas* lista, int indice) {
-    if (listaCharadasVazia(lista) || indice < 0 || indice >= lista->tamanho) {
+MensagemConforto* buscarMensagem(ListaMensagens* lista, int indice) {
+    if (listaMensagensVazia(lista) || indice < 0 || indice >= lista->tamanho) {
         return NULL;
     }
-    
-    NodoCharada* atual = lista->inicio;
+
+    NodoMensagem* atual = lista->inicio;
     for (int i = 0; i < indice; i++) {
         atual = atual->proximo;
     }
-    
-    return &(atual->charada);
+
+    return &atual->mensagem;
 }
 
 // =============================================================================

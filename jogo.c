@@ -7,7 +7,7 @@
 #include "obstaculo_sprites.h"
 #include "raymath.h"
 #include "estruturas.h" // Incluindo as estruturas de dados
-
+    
 
 // Boss movement globals
 const int DIREITA = 1;
@@ -24,6 +24,31 @@ PilhaNumerosDano pilhaNumerosDano;
 void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano);
 
 // Variáveis globais do jogo
+
+// Sistema de mensagens atmosféricas/lore
+int mostrarMensagemLore = 0;
+float tempoMensagemLore = 0.0f;
+char mensagemLore[256] = "";
+
+const char* mensagensFase2[] = {
+    "O frio se intensifica, memórias distantes ecoam...",
+    "O medo toma forma nas sombras do passado.",
+    "Sons distorcidos sussurram antigas dores.",
+    "A esperança se esconde atrás de olhos fechados."
+};
+const char* mensagensFase3[] = {
+    "O confronto final se aproxima, o coração vacila.",
+    "A dor e a coragem colidem no abismo da mente.",
+    "Gritos silenciosos ecoam pela eternidade.",
+    "O fim é apenas um novo começo sombrio."
+};
+const char* mensagensVitoria[] = {
+    "A luz retorna, mas as cicatrizes permanecem.",
+    "O coração pulsa, mas nunca será o mesmo.",
+    "A noite se despede, trazendo alívio e vazio.",
+    "A vitória tem gosto de lembrança amarga."
+};
+
 Vector2 posicaoCoracao;
 float vidaCoracao = 200.0f;
 float pontuacao = 0.0f;
@@ -33,7 +58,6 @@ Texture2D texturaCoracao;
 Texture2D texturaOssoReto;
 Texture2D texturaOssoHorizontal;
 float tempoInvulnerabilidade = 0.0f;
-
 
 // Corrigido: variáveis de tempo de onda/obstáculo
 static float tempoUltimaOnda = 0.0f;
@@ -46,7 +70,7 @@ static float tempoJogo = 0.0f;
 static bool modoChefao = false;
 static int bossAtual = 0;
 static float velocidadeBase = 2.5f;
-static float velocidadeCoracao = VELOCIDADE_CORACAO;
+static float velocidadeCoracao = 10.0f; // valor maior para resposta rápida
 
 // Variáveis para o efeito visual de dano
 float efeitoDanoTempo = 0.0f;
@@ -106,7 +130,7 @@ void inicializarJogo(void) {
     jogadorMovendo = false;
     contadorObstaculos = 0;
     velocidadeBase = 2.5f;
-    velocidadeCoracao = VELOCIDADE_CORACAO;
+    velocidadeCoracao = 10.0f; // valor maior para resposta rápida
     modoChefao = true;
     nivelDificuldade = NORMAL;
     bosses[0].ativo = true;
@@ -132,9 +156,10 @@ void inicializarJogo(void) {
       // Inicializa avisos de laser
     limparAvisosLaser();
     
-    // Inicializa o sistema de charadas
-    inicializarSistemaCharadas();
-    modoCharada = false;
+    // Inicializa variáveis de mensagens atmosféricas
+    mostrarMensagemLore = 0;
+    tempoMensagemLore = 0.0f;
+    mensagemLore[0] = '\0';
 }
 
 // --- Liberar textura do osso grande do topo ao fechar o jogo ---
@@ -142,9 +167,6 @@ void liberarRecursosJogo(void) {
     UnloadTexture(texturaCoracao);
     UnloadTexture(texturaOssoReto);
     UnloadTexture(texturaOssoHorizontal);
-    
-    // Liberar recursos do sistema de charadas
-    liberarRecursosCharada();
 }
 
 // Inicializa a posição do coração
@@ -240,11 +262,11 @@ void gerarOndaDeOssos(void) {
                 
                 // Alterna entre osso horizontal e vertical
                 if (i % 2 == 0) {
-                    obstaculosBrancos[j].comprimento = 30; // horizontal
-                    alturaOsso = 13 * escalaVertical;
-                } else {
                     obstaculosBrancos[j].comprimento = 10; // vertical
                     alturaOsso = 153 * escalaVertical;
+                } else {
+                    obstaculosBrancos[j].comprimento = 30; // horizontal
+                    alturaOsso = 13 * escalaVertical;
                 }
                 
                 // Espaçamento mínimo de 10px entre ossos
@@ -321,19 +343,18 @@ void sansFightFase(void) {
         sansPadraoAtual = GetRandomValue(0, maxPadrao); // 0: horizontal, 1: vertical, 2: mista, 3: caveiras
         sansIntervaloPadrao = 1.0f + GetRandomValue(0, 10) / 10.0f;
           if (sansPadraoAtual == 0) {
-            // Ossos horizontais subindo do chão
+            // Ossos horizontais subindo do chão (apenas na parte inferior)
             for (int i = 0; i < 6 + faseAtual; i++) {
                 for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
                     if (!obstaculosBrancos[j].ativo) {
                         obstaculosBrancos[j].ativo = true;
-                        // Garantir que as posições X estejam distribuídas dentro da área de jogo
+                        // Distribui X normalmente
                         float minX = AREA_JOGO_X + 30;
                         float maxX = AREA_JOGO_X + AREA_JOGO_LARGURA - 30;
                         float spacing = (maxX - minX) / (6 + faseAtual);
                         obstaculosBrancos[j].posicao.x = minX + i * spacing;
-                        // Posicionar exatamente no limite inferior da área de jogo
-                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA;
-                        // Velocidade negativa para mover para cima
+                        // Sempre nasce no limite inferior da área de jogo
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA - 8; // 8px acima do fundo
                         obstaculosBrancos[j].velocidade = -4.0f - GetRandomValue(0, 2) - faseAtual;
                         obstaculosBrancos[j].comprimento = 10; // vertical
                         break;
@@ -359,18 +380,18 @@ void sansFightFase(void) {
                     }
                 }
             }
-        } else if (sansPadraoAtual == 2) {            // Misto: ossos de baixo e da direita
+        } else if (sansPadraoAtual == 2) {
+            // Misto: ossos de baixo e da direita
             for (int i = 0; i < 3 + faseAtual; i++) {
                 for (int j = 0; j < MAX_OBSTACULOS_BRANCOS; j++) {
                     if (!obstaculosBrancos[j].ativo) {
                         obstaculosBrancos[j].ativo = true;
-                        // Garantir que as posições X estejam dentro da área de jogo
                         float minX = AREA_JOGO_X + 30;
                         float maxX = AREA_JOGO_X + AREA_JOGO_LARGURA - 30;
                         float xPos = AREA_JOGO_X + 30 + i * 60;
                         obstaculosBrancos[j].posicao.x = Clamp(xPos, minX, maxX);
-                         // Posicionar no limite inferior da área de jogo
-                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA;
+                        // Sempre nasce no limite inferior da área de jogo
+                        obstaculosBrancos[j].posicao.y = AREA_JOGO_Y + AREA_JOGO_ALTURA - 8;
                         obstaculosBrancos[j].velocidade = -6.0f - faseAtual;
                         obstaculosBrancos[j].comprimento = 10;
                         break;
@@ -415,6 +436,93 @@ void sansFightFase(void) {
     }
 }
 
+// Nova função: Geração avançada de obstáculos brancos
+void gerarObstaculoBrancoFluido(void) {
+    // Limite de obstáculos ativos simultâneos
+    int ativos = 0;
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
+        if (obstaculosBrancos[i].ativo) ativos++;
+    }
+    int limiteAtivos = 10 + faseAtual * 4 + (int)(pontuacao/200.0f);
+    if (limiteAtivos > MAX_OBSTACULOS_BRANCOS-2) limiteAtivos = MAX_OBSTACULOS_BRANCOS-2;
+    if (ativos >= limiteAtivos) return;
+
+    // Escolhe padrão: 0=aleatório, 1=onda, 2=mirando, 3=combo
+    int padrao = GetRandomValue(0, 3);
+    if (faseAtual == 1 && padrao > 1) padrao = 0; // Fase 1 só aleatório/onda
+
+    int quantidade = 1;
+    if (padrao == 1) quantidade = 3 + GetRandomValue(0,2); // onda
+    if (padrao == 3) quantidade = 2 + GetRandomValue(0,1); // combo
+
+    for (int k = 0; k < quantidade; k++) {
+        // Procura slot livre
+        int idx = -1;
+        for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
+            if (!obstaculosBrancos[i].ativo) { idx = i; break; }
+        }
+        if (idx == -1) break;
+        obstaculosBrancos[idx].ativo = true;
+        obstaculosBrancos[idx].tempoAnimacao = 0.25f; // fade-in
+        // Posição X sempre na borda direita
+        obstaculosBrancos[idx].posicao.x = AREA_JOGO_X + AREA_JOGO_LARGURA + 20;
+        // Posição Y
+        float minY = AREA_JOGO_Y + 20;
+        float maxY = AREA_JOGO_Y + AREA_JOGO_ALTURA - 20;
+        float y = minY + (maxY-minY) * ((float)GetRandomValue(0,1000)/1000.0f);
+        if (padrao == 2) { // mirando no jogador
+            y = posicaoCoracao.y + GetRandomValue(-30,30);
+            if (y < minY) y = minY;
+            if (y > maxY) y = maxY;
+        }
+        if (padrao == 1) { // onda
+            y = minY + (maxY-minY) * ((float)k/(quantidade-1));
+        }
+        obstaculosBrancos[idx].posicao.y = y;
+        // Comprimento/tipo
+        obstaculosBrancos[idx].comprimento = (GetRandomValue(0,1)==0) ? 10 : 30;
+        // Velocidade dinâmica
+        float vBase = 2.5f + faseAtual*0.7f + pontuacao/400.0f;
+        float vRand = 0.7f + GetRandomValue(0,100)/100.0f;
+        obstaculosBrancos[idx].velocidade = -(vBase * vRand);
+        // Pequena chance de ser muito rápido
+        if (GetRandomValue(0,10)==0) obstaculosBrancos[idx].velocidade *= 1.5f;
+        // Pequena chance de ser maior
+        if (GetRandomValue(0,8)==0) obstaculosBrancos[idx].comprimento = 30;
+    }
+}
+
+// Atualização avançada dos obstáculos brancos
+void atualizarObstaculosBrancosFluido(void) {
+    float tempo = GetTime();
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
+        if (obstaculosBrancos[i].ativo) {
+            // Fade-in visual
+            if (obstaculosBrancos[i].tempoAnimacao > 0) {
+                obstaculosBrancos[i].tempoAnimacao -= GetFrameTime();
+                if (obstaculosBrancos[i].tempoAnimacao < 0) obstaculosBrancos[i].tempoAnimacao = 0;
+            }
+            // Movimento
+            obstaculosBrancos[i].posicao.x += obstaculosBrancos[i].velocidade;
+            // Senoidal leve para dar vida
+            if (faseAtual >= 2) {
+                obstaculosBrancos[i].posicao.y += sinf(tempo*2.5f + i) * 0.7f;
+            }
+            // Mira no jogador em fases avançadas
+            if (faseAtual >= 3 && i%4==0) {
+                float dy = posicaoCoracao.y - obstaculosBrancos[i].posicao.y;
+                obstaculosBrancos[i].posicao.y += dy * 0.03f;
+            }
+            // Limites
+            if (obstaculosBrancos[i].posicao.x < AREA_JOGO_X - 80 ||
+                obstaculosBrancos[i].posicao.y < AREA_JOGO_Y - 40 ||
+                obstaculosBrancos[i].posicao.y > AREA_JOGO_Y + AREA_JOGO_ALTURA + 40) {
+                obstaculosBrancos[i].ativo = false;
+            }
+        }
+    }
+}
+
 // Limpa todos os obstáculos e prepara o jogo para a próxima fase
 void limparObstaculosEPrepararProximaFase(void) {
     // Limpa todos os obstáculos brancos
@@ -426,69 +534,70 @@ void limparObstaculosEPrepararProximaFase(void) {
     limparAvisosLaser();
 }
 
-
 bool atualizarJogo(void) {
-    // Verificar se estamos no modo charada
-    if (modoCharada) {
-        return atualizarTelaCharada(); // Retorna false se o jogador falhar na charada
-    }
-    
-    // Verifica transições de fase
-    if (pontuacao >= 200 && faseAtual == 1) {
-        // Ativar charada para passar para a fase 2
-        gerarNovaCharada(2);
-        modoCharada = true;
-        return true;
-    }
-
-    if (pontuacao >= 400 && faseAtual == 2) {
-        // Ativar charada para passar para a fase 3
-        gerarNovaCharada(3);
-        modoCharada = true;
-        return true;
-    }
-
-    if (pontuacao >= 2000 && faseAtual == 3) {
-        // Charada final (opcional)
-        gerarNovaCharada(4); // Charada de vitória
-        modoCharada = true;
-        return true;
-    }
-
-    // Atualiza o coração
+    // Atualiza movimento do coração
     atualizarCoracao();
-
-    // Gera e atualiza obstáculos com frequência aumentada baseada na fase
-    contadorObstaculos++;
-    int intervaloAjustado = INTERVALO_GERACAO_OBSTACULO - (faseAtual * 5);
-    if (intervaloAjustado < 5) intervaloAjustado = 5;
-
-    float tempoAtual = GetTime();
-    if (faseAtual == 1) {
-        // Fase 1: ossos surgem aleatoriamente
-        float intervalo = 1.0f + (GetRandomValue(0, 10) / 15.0f); // 1s a 1.67s
-        if (tempoAtual - tempoUltimoObstaculo > intervalo) {
-            gerarObstaculoBrancoAleatorio();
-            tempoUltimoObstaculo = tempoAtual;
+    // Exibir mensagem atmosférica de lore, se necessário
+    if (mostrarMensagemLore) {
+        tempoMensagemLore -= GetFrameTime();
+        if (tempoMensagemLore <= 0) {
+            mostrarMensagemLore = 0;
         }
-    } else if (faseAtual == 2) {
-        // Fase 2: caveiras animadas que disparam lasers
-        float intervalo = 1.5f + (GetRandomValue(0, 10) / 10.0f); // 1.5s a 2.5s
-        if (tempoAtual - tempoUltimoObstaculo > intervalo) {
-            tempoUltimoObstaculo = tempoAtual;
-        }
-    } else if (tempoAtual - tempoUltimaOnda > 2.0f) {
-        gerarOndaDeOssos();
-        tempoUltimaOnda = tempoAtual;
+        return true;
     }
 
+    // Troca de fase: buscar mensagem de conforto da IA
+    if (pontuacao >= 200 && faseAtual == 1) {
+        faseAtual = 2;
+        int idx = GetRandomValue(0, 3);
+        strcpy(mensagemLore, mensagensFase2[idx]);
+        mostrarMensagemLore = 1;
+        tempoMensagemLore = 3.0f;
+        limparObstaculosEPrepararProximaFase();
+        // Buscar mensagem de conforto da IA
+        strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
+        mensagemAtual.ativa = 1;
+        atualizarMensagemConforto();
+        return true;
+    }
+    if (pontuacao >= 400 && faseAtual == 2) {
+        faseAtual = 3;
+        int idx = GetRandomValue(0, 3);
+        strcpy(mensagemLore, mensagensFase3[idx]);
+        mostrarMensagemLore = 1;
+        tempoMensagemLore = 3.0f;
+        limparObstaculosEPrepararProximaFase();
+        // Buscar mensagem de conforto da IA
+        strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
+        mensagemAtual.ativa = 1;
+        atualizarMensagemConforto();
+        return true;
+    }
+    if (pontuacao >= 2000 && faseAtual == 3) {
+        int idx = GetRandomValue(0, 3);
+        strcpy(mensagemLore, mensagensVitoria[idx]);
+        mostrarMensagemLore = 1;
+        tempoMensagemLore = 3.0f;
+        // Buscar mensagem de conforto da IA
+        strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
+        mensagemAtual.ativa = 1;
+        atualizarMensagemConforto();
+        return false; // Fim do jogo
+    }
+
+    // Fases e geração de obstáculos
+    float tempoAtual = GetTime();
+    static float tempoUltimoFluido = 0.0f;
+    float intervaloFluido = 0.7f - (faseAtual*0.12f) - (pontuacao/3000.0f);
+    if (intervaloFluido < 0.22f) intervaloFluido = 0.22f;
+    if (tempoAtual - tempoUltimoFluido > intervaloFluido) {
+        gerarObstaculoBrancoFluido();
+        tempoUltimoFluido = tempoAtual;
+    }
+    atualizarObstaculosBrancosFluido();
     // Atualiza os obstáculos
     atualizarObstaculos();
-
-    // Atualiza os bosses
     atualizarBosses();
-
-    // Atualiza os projéteis
     atualizarProjeteis();
 
     // Detecta colisões
@@ -506,7 +615,6 @@ bool atualizarJogo(void) {
         ativarBossDaFase(faseAtual);
     }
 
-    // Atualiza a fase com base na pontuação
     atualizarFase();
 
     // Atualiza o efeito visual de dano
@@ -517,7 +625,6 @@ bool atualizarJogo(void) {
         }
     }
 
-    // Atualiza os números de dano
     atualizarNumerosDano();
 
     // Atualiza tempo de invulnerabilidade
@@ -538,6 +645,7 @@ bool atualizarJogo(void) {
         definirDificuldade(nivelDificuldade);
     }
 
+    // ... resto da função ...
     if (IsKeyPressed(KEY_F2)) {
         efeitosVisuaisAvancados = !efeitosVisuaisAvancados;
     }
@@ -635,7 +743,6 @@ void atualizarObstaculosBrancos(void) {
     }
 }
 
-
 void atualizarObstaculos(void) {
     float escalaVertical = 0.35f;
     float larguraVertical = 62 * escalaVertical;    // Largura do osso vertical
@@ -704,16 +811,11 @@ bool detectarColisoes(void) {
                 obstaculosBrancos[i].posicao.x > limiteDireito + 40 || 
                 obstaculosBrancos[i].posicao.y < limiteSuperior - 40 || 
                 obstaculosBrancos[i].posicao.y > limiteInferior + 40) {
-                
-                // Se um obstáculo estiver muito fora da área, vamos desativá-lo imediatamente
                 obstaculosBrancos[i].ativo = false;
                 continue;
             }
-            
-            // Verifica se o obstáculo tem ALGUMA PARTE visível na área de jogo antes de testar colisão
-            bool temParteVisivel = false;
+            // Sempre testa colisão se o obstáculo está ativo e pelo menos parcialmente visível
             Rectangle retanguloOsso;
-
             if (obstaculosBrancos[i].comprimento == 10) {
                 // Osso vertical
                 retanguloOsso = (Rectangle){
@@ -722,12 +824,6 @@ bool detectarColisoes(void) {
                     larguraVertical,
                     alturaVertical
                 };
-                
-                // Verifica se pelo menos uma parte do osso está na área visível
-                temParteVisivel = !(retanguloOsso.x > limiteDireito || 
-                                   retanguloOsso.x + retanguloOsso.width < limiteEsquerdo ||
-                                   retanguloOsso.y > limiteInferior || 
-                                   retanguloOsso.y + retanguloOsso.height < limiteSuperior);
             } else {
                 // Osso horizontal
                 retanguloOsso = (Rectangle){
@@ -736,16 +832,9 @@ bool detectarColisoes(void) {
                     larguraHorizontal,
                     alturaHorizontal
                 };
-                
-                // Verifica se pelo menos uma parte do osso está na área visível
-                temParteVisivel = !(retanguloOsso.x > limiteDireito || 
-                                   retanguloOsso.x + retanguloOsso.width < limiteEsquerdo ||
-                                   retanguloOsso.y > limiteInferior || 
-                                   retanguloOsso.y + retanguloOsso.height < limiteSuperior);
             }
-
-            // Só testa colisão se o objeto tiver alguma parte visível
-            if (temParteVisivel && tempoInvulnerabilidade <= 0.0f && CheckCollisionRecs(retanguloCoracao, retanguloOsso)) {
+            // Testa colisão SEM depender de temParteVisivel
+            if (tempoInvulnerabilidade <= 0.0f && CheckCollisionRecs(retanguloCoracao, retanguloOsso)) {
                 vidaCoracao -= 5;
                 efeitoDanoTempo = 0.5f;
                 ultimoDano = 5.0f;
@@ -770,18 +859,15 @@ void mudarParaFase3(void) {
     limparObstaculosEPrepararProximaFase();
 }
 
+// Função para desenhar toda a interface do jogo (HUD, área de jogo, etc.)
 void desenharJogo(void) {
     atualizarEscalaTela();
     BeginDrawing();
     ClearBackground(BLACK);
     
-    // Se estivermos no modo charada, desenha a tela de charada
-    if (modoCharada) {
-        desenharTelaCharada();
-        EndDrawing();
-        return;
-    }
     BeginAreaJogoComEscala();
+    // Exibe mensagem atmosférica de lore, se necessário
+    desenharMensagemConforto();
     // Desenha o fundo da fase atual
     Color corFundo;
     switch (faseAtual) {
@@ -902,19 +988,15 @@ void desenharJogo(void) {
     DrawText(textoHP, barraHPX + (barraHPLargura - textoHPLargura) / 2 + 1, barraHPY + 6 + 1, 20, BLACK);
     DrawText(textoHP, barraHPX + (barraHPLargura - textoHPLargura) / 2, barraHPY + 6, 20, WHITE);
     
-    {
-        char textoFase[50];
-        
-        switch(faseAtual) {
-            case 1: sprintf(textoFase, "FASE 1: LEMBRANÇAS"); break;
-            case 2: sprintf(textoFase, "FASE 2: PESADELOS"); break;
-            case 3: sprintf(textoFase, "FASE 3: CONFRONTO FINAL"); break;
-            default: sprintf(textoFase, "FASE %d", faseAtual); break;
-        }
-        
-        DrawRectangle(AREA_JOGO_X, 8, MeasureText(textoFase, 20) + 10, 24, (Color){0, 0, 0, 180});
-        DrawText(textoFase, AREA_JOGO_X + 5, 10, 20, WHITE);
+    char textoFase[50];
+    switch(faseAtual) {
+        case 1: sprintf(textoFase, "FASE 1: LEMBRANÇAS"); break;
+        case 2: sprintf(textoFase, "FASE 2: PESADELOS"); break;
+        case 3: sprintf(textoFase, "FASE 3: CONFRONTO FINAL"); break;
+        default: sprintf(textoFase, "FASE %d", faseAtual); break;
     }
+    DrawRectangle(AREA_JOGO_X, 8, MeasureText(textoFase, 20) + 10, 24, (Color){0, 0, 0, 180});
+    DrawText(textoFase, AREA_JOGO_X + 5, 10, 20, WHITE);
     
     char textoBoss[50] = "";
     char textoPontuacao[50];
@@ -930,47 +1012,27 @@ void desenharJogo(void) {
     
     sprintf(textoPontuacao, "Pontuação: %d", (int)pontuacao);
     
-    if (textoBoss[0] != '\0') {
-        int larguraBoss = MeasureText(textoBoss, 20) + 20;
-        DrawRectangle(
-            AREA_JOGO_X + AREA_JOGO_LARGURA - larguraBoss - 10,
-            AREA_JOGO_Y + 10,
-            larguraBoss,
-            30,
-            (Color){ 50, 0, 0, 180 }
-        );
-        
-        DrawText(
-            textoBoss, 
-            AREA_JOGO_X + AREA_JOGO_LARGURA - larguraBoss - 0,
-            AREA_JOGO_Y + 15, 
-            20, 
-            (Color){255, 100, 100, 255}
-        );
-    }
-    
+    // Pontuação e Boss: mover para o topo da tela, fora da área de jogo
     int larguraPontuacao = MeasureText(textoPontuacao, 20) + 20;
     DrawRectangle(
-        AREA_JOGO_X + 10,
-        AREA_JOGO_Y + 10,
+        AREA_JOGO_X + (AREA_JOGO_LARGURA - larguraPontuacao) / 2,
+        AREA_JOGO_Y - 40, // acima da área de jogo
         larguraPontuacao,
         30,
         (Color){ 30, 30, 0, 180 }
     );
-    
     DrawText(
         textoPontuacao, 
-        AREA_JOGO_X + 20, 
-        AREA_JOGO_Y + 15, 
+        AREA_JOGO_X + (AREA_JOGO_LARGURA - larguraPontuacao) / 2 + 10, 
+        AREA_JOGO_Y - 35, 
         20, 
         (Color){255, 255, 0, 255}
     );
-    
-    // Exibir pergunta da charada, se o modo charada estiver ativo
-    if (modoCharada) {
+    if (mensagemAtual.ativa) {
         DrawRectangle(AREA_JOGO_X + 10, AREA_JOGO_Y + 50, AREA_JOGO_LARGURA - 20, 100, (Color){0, 0, 0, 180});
-        DrawText(charadaAtual.pergunta, AREA_JOGO_X + 20, AREA_JOGO_Y + 60, 20, WHITE);
+        DrawText(mensagemAtual.mensagem, AREA_JOGO_X + 20, AREA_JOGO_Y + 60, 20, WHITE);
     }
+    EndDrawing();
 }
 
 void desenharCoracao(void) {
@@ -1086,7 +1148,6 @@ void desenharObstaculos(void) {
     }
 }
 
-
 void inicializarNumerosDano(void) {
     // Inicializa a pilha de números de dano
     inicializarPilhaNumerosDano(&pilhaNumerosDano);
@@ -1104,7 +1165,6 @@ void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano) {
     novoDano.valor = valor;
     novoDano.tempo = 1.0f;
     novoDano.ativo = true;
-    novoDano.ehDano = ehDano;
     novoDano.velocidade.x = GetRandomValue(-50, 50) / 100.0f;
     novoDano.velocidade.y = -2.5f;
     

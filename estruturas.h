@@ -43,30 +43,30 @@ bool empilharNumeroDano(PilhaNumerosDano* pilha, NumeroDano num);
 bool desempilharNumeroDano(PilhaNumerosDano* pilha, NumeroDano* num);
 
 // =============================================================================
-// Implementação de Lista Encadeada para Charadas
+// Implementação de Lista Encadeada para Mensagens de Conforto
 // =============================================================================
 
-// Nó da lista duplamente encadeada de charadas
-typedef struct NodoCharada {
-    Charada charada;
-    struct NodoCharada* proximo;
-    struct NodoCharada* anterior; // Ponteiro para o nó anterior
-} NodoCharada;
+// Nó da lista duplamente encadeada de mensagens
+typedef struct NodoMensagem {
+    MensagemConforto mensagem;
+    struct NodoMensagem* proximo;
+    struct NodoMensagem* anterior; // Ponteiro para o nó anterior
+} NodoMensagem;
 
-// Lista duplamente encadeada de charadas
+// Lista duplamente encadeada de mensagens
 typedef struct {
-    NodoCharada* inicio;
-    NodoCharada* fim;
+    NodoMensagem*  inicio;
+    NodoMensagem* fim;
     int tamanho;
-} ListaCharadas;
+} ListaMensagens;
 
 // Funções de manipulação da lista
-void inicializarListaCharadas(ListaCharadas* lista);
-bool listaCharadasVazia(ListaCharadas* lista);
-bool inserirCharada(ListaCharadas* lista, Charada charada);
-bool removerCharada(ListaCharadas* lista, int indice, Charada* charada);
-void liberarListaCharadas(ListaCharadas* lista);
-Charada* buscarCharada(ListaCharadas* lista, int indice);
+void inicializarListaMensagens(ListaMensagens* lista);
+bool listaMensagensVazia(ListaMensagens* lista);
+bool inserirMensagem(ListaMensagens* lista, MensagemConforto mensagem);
+bool removerMensagem(ListaMensagens* lista, int indice, MensagemConforto* mensagem);
+void liberarListaMensagens(ListaMensagens* lista);
+MensagemConforto* buscarMensagem(ListaMensagens* lista, int indice);
 
 // =============================================================================
 // Implementação de Árvore Binária para Progressão de Bosses

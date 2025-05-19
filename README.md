@@ -16,8 +16,8 @@ Em um mundo onde a luz se apagou, você é a última centelha de um coração qu
 
 - **Movimentação**: Contr ole preciso do coração com as teclas WASD em uma área de jogo delimitada.
 - **Obstáculos Dinâmicos**: 
-  - **Obstáculos Brancos**: Gerenciados por uma lista circular, causam dano ao coração em caso de colisão.
-- **Charadas**: Desafios gerados pela API Gemini do Google, armazenados em uma lista duplamente encadeada.
+- **Obstáculos Brancos**: Gerenciados por uma lista circular, causam dano ao coração em caso de colisão.
+- **Gemini API**: Mensagens positivas geradas por IA.
 - **Sistema de Chefes**: Batalhas contra chefes com padrões de ataque únicos ao final de cada fase.
 - **Sistema de Pontuação**: Registra e classifica as pontuações usando algoritmo Bubble Sort.
 
