@@ -552,7 +552,7 @@ bool atualizarJogo(void) {
     }
 
     // Troca de fase: buscar mensagem de conforto da IA
-    if (pontuacao >= 200 && faseAtual == 1) {
+    if (pontuacao >= 500 && faseAtual == 1) {
         faseAtual = 2;
         // Buscar mensagem de conforto da IA
         strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
@@ -562,7 +562,7 @@ bool atualizarJogo(void) {
         tempoMensagemConforto = GetTime();
         return true;
     }
-    if (pontuacao >= 400 && faseAtual == 2) {
+    if (pontuacao >= 1000 && faseAtual == 2) {
         faseAtual = 3;
         // Buscar mensagem de conforto da IA
         strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
@@ -572,7 +572,7 @@ bool atualizarJogo(void) {
         tempoMensagemConforto = GetTime();
         return true;
     }
-    if (pontuacao >= 600 && faseAtual == 3) {
+    if (pontuacao >= 1500 && faseAtual == 3) {
         int idx = GetRandomValue(0, 3);
         strcpy(mensagemLore, mensagensVitoria[idx]);
         mostrarMensagemLore = 1;
