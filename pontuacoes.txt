@@ -2,6 +2,8 @@
 a
 asdasd 1000
 a 1000
+elias 200
+oo 200
 aa 97
 a 97
 ] 95

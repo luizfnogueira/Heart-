@@ -6,7 +6,20 @@
 #include <string.h>
 #include "obstaculo_sprites.h"
 #include "raymath.h"
+#include "estruturas.h" // Incluindo as estruturas de dados
 
+
+// Boss movement globals
+const int DIREITA = 1;
+const int ESQUERDA = -1;
+int direcaoBoss = DIREITA;
+float velocidadeBoss = 2.0f;
+
+// Estrutura de dados para a fila de obstáculos
+FilaObstaculos filaObstaculos;
+
+// Estrutura de dados para a pilha de números de dano
+PilhaNumerosDano pilhaNumerosDano;
 
 void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano);
 
@@ -142,8 +155,11 @@ void inicializarCoracao(void) {
 
 // Inicializa os obstáculos
 void inicializarObstaculos(void) {
+    // Inicializa a fila de obstáculos
+    inicializarFilaObstaculos(&filaObstaculos);
+    
     // Inicializa obstáculos brancos
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < MAX_OBSTACULOS_BRANCOS; i++) {
         obstaculosBrancos[i].ativo = false;
         obstaculosBrancos[i].tempoAnimacao = 0;
     }
@@ -1072,35 +1088,75 @@ void desenharObstaculos(void) {
 
 
 void inicializarNumerosDano(void) {
+    // Inicializa a pilha de números de dano
+    inicializarPilhaNumerosDano(&pilhaNumerosDano);
+    
+    // Mantém a inicialização do array para compatibilidade
     for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
         numerosDano[i].ativo = false;
     }
 }
 
 void adicionarNumeroDano(float valor, Vector2 posicao, bool ehDano) {
-    for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
-        if (!numerosDano[i].ativo) {
-            numerosDano[i].posicao = posicao;
-            numerosDano[i].valor = valor;
-            numerosDano[i].tempo = 1.0f;
-            numerosDano[i].ativo = true;
-            numerosDano[i].ehDano = ehDano;
-            
-            numerosDano[i].velocidade.x = GetRandomValue(-50, 50) / 100.0f;
-            numerosDano[i].velocidade.y = -2.5f;
-            
-            if (ehDano) {
-                numerosDano[i].cor = (Color){255, 0, 0, 255};
-            } else {
-                numerosDano[i].cor = (Color){0, 255, 0, 255};
+    // Criar um novo número de dano
+    NumeroDano novoDano;
+    novoDano.posicao = posicao;
+    novoDano.valor = valor;
+    novoDano.tempo = 1.0f;
+    novoDano.ativo = true;
+    novoDano.ehDano = ehDano;
+    novoDano.velocidade.x = GetRandomValue(-50, 50) / 100.0f;
+    novoDano.velocidade.y = -2.5f;
+    
+    if (ehDano) {
+        novoDano.cor = (Color){255, 0, 0, 255};
+    } else {
+        novoDano.cor = (Color){0, 255, 0, 255};
+    }
+    
+    // Adicionar à pilha
+    if (!empilharNumeroDano(&pilhaNumerosDano, novoDano)) {
+        // Pilha cheia, usar o array antigo como fallback
+        for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
+            if (!numerosDano[i].ativo) {
+                numerosDano[i] = novoDano;
+                break;
             }
-            
-            break;
         }
     }
 }
 
 void atualizarNumerosDano(void) {
+    // Criamos uma pilha temporária para manipular os elementos
+    PilhaNumerosDano pilhaTemp;
+    inicializarPilhaNumerosDano(&pilhaTemp);
+    
+    // Processamos a pilha principal, removendo itens expirados e atualizando os ativos
+    while (!pilhaNumerosDanoVazia(&pilhaNumerosDano)) {
+        NumeroDano num;
+        if (desempilharNumeroDano(&pilhaNumerosDano, &num)) {
+            // Atualizar posição e tempo
+            num.posicao.x += num.velocidade.x;
+            num.posicao.y += num.velocidade.y;
+            num.velocidade.y *= 0.95f;
+            num.tempo -= GetFrameTime();
+            
+            // Se ainda estiver ativo, colocamos na pilha temporária
+            if (num.tempo > 0) {
+                empilharNumeroDano(&pilhaTemp, num);
+            }
+        }
+    }
+    
+    // Devolvemos os itens ativos para a pilha principal (em ordem inversa)
+    while (!pilhaNumerosDanoVazia(&pilhaTemp)) {
+        NumeroDano num;
+        if (desempilharNumeroDano(&pilhaTemp, &num)) {
+            empilharNumeroDano(&pilhaNumerosDano, num);
+        }
+    }
+    
+    // Também atualiza o array tradicional para compatibilidade
     for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
         if (numerosDano[i].ativo) {
             numerosDano[i].posicao.x += numerosDano[i].velocidade.x;
@@ -1118,6 +1174,63 @@ void atualizarNumerosDano(void) {
 }
 
 void desenharNumerosDano(void) {
+    // Criamos pilhas temporárias para desenhar e preservar os números de dano
+    PilhaNumerosDano pilhaTemp;
+    inicializarPilhaNumerosDano(&pilhaTemp);
+    PilhaNumerosDano pilhaDesenho;
+    inicializarPilhaNumerosDano(&pilhaDesenho);
+    
+    // Transferimos todos os elementos para a pilha de desenho
+    while (!pilhaNumerosDanoVazia(&pilhaNumerosDano)) {
+        NumeroDano num;
+        if (desempilharNumeroDano(&pilhaNumerosDano, &num)) {
+            empilharNumeroDano(&pilhaDesenho, num);
+        }
+    }
+    
+    // Desenhar e preservar os números
+    while (!pilhaNumerosDanoVazia(&pilhaDesenho)) {
+        NumeroDano num;
+        if (desempilharNumeroDano(&pilhaDesenho, &num)) {
+            // Desenhar o número
+            int alpha = (int)(255 * num.tempo);
+            if (alpha < 0) alpha = 0;
+            if (alpha > 255) alpha = 255;
+            
+            Color color = num.cor;
+            color.a = alpha;
+            
+            float size = 20.0f;
+            if (num.valor > 30.0f) size = 30.0f;
+            if (num.valor > 50.0f) size = 35.0f;
+            
+            float pulseFactor = 1.0f + 0.2f * sinf(GetTime() * 10.0f);
+            size *= pulseFactor;
+            
+            char texto[20];
+            if (num.ehDano) {
+                sprintf(texto, "-%d", (int)num.valor);
+            } else {
+                sprintf(texto, "+%d", (int)num.valor);
+            }
+            
+            DrawText(texto, num.posicao.x + 2, num.posicao.y + 2, size, BLACK);
+            DrawText(texto, num.posicao.x, num.posicao.y, size, color);
+            
+            // Preservar na pilha temporária
+            empilharNumeroDano(&pilhaTemp, num);
+        }
+    }
+    
+    // Devolver todos os elementos para a pilha original
+    while (!pilhaNumerosDanoVazia(&pilhaTemp)) {
+        NumeroDano num;
+        if (desempilharNumeroDano(&pilhaTemp, &num)) {
+            empilharNumeroDano(&pilhaNumerosDano, num);
+        }
+    }
+    
+    // Desenhar também o array tradicional para compatibilidade
     for (int i = 0; i < MAX_NUMEROS_DANO; i++) {
         if (numerosDano[i].ativo) {
             int alpha = (int)(255 * numerosDano[i].tempo);
@@ -1183,10 +1296,6 @@ void ativarBossDaFase(int fase) {
         bosses[i].ativo = (bosses[i].fase == fase);
     }
 }
-
-enum Direcao { ESQUERDA = -1, DIREITA = 1 };
-static int direcaoBoss = DIREITA;
-static float velocidadeBoss = 150.0f;
 
 void atualizarBosses(void) {
     for (int i = 0; i < MAX_BOSSES; i++) {

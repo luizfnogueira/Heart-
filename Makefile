@@ -2,7 +2,7 @@
 TARGET = heart
 
 # Fontes do jogo
-SRCS = main.c menu.c jogo.c pontuacao.c boss.c charada.c
+SRCS = main.c menu.c jogo.c pontuacao.c boss.c charada.c estruturas.c algoritmos.c
 
 # Detectar sistema operacional
 ifeq ($(OS),Windows_NT)    # Bibliotecas para Windows

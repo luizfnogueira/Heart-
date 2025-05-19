@@ -1,5 +1,6 @@
 #include "charada.h"
 #include "jogo.h"
+#include "estruturas.h" // Incluindo as estruturas de dados
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,8 +20,9 @@
 #include <curl/curl.h>
 #endif
 
-// Declaração da função registrarLog
+// Implementação da função registrarLog
 void registrarLog(const char* formato, ...);
+
 void DrawTextBoxedCentered(const char *text, Rectangle rec, int fontSize, int spacing, Color color);
 
 // Declaração da variável global nivelDificuldade
@@ -56,11 +58,44 @@ typedef struct {
 // Variáveis globais
 Charada charadaAtual;
 bool modoCharada = false;
+ListaCharadas listaCharadas; // Lista encadeada para armazenar charadas
 static Texture2D fundoCharada;
 static char mensagemStatus[256] = "";
 static float tempoFeedback = 0.0f;
 static Rectangle caixaInput = {0};
 static SistemaLog sistemaLog = {0};
+
+// Implementação da função registrarLog
+void registrarLog(const char* formato, ...) {
+    va_list args;
+    va_start(args, formato);
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), formato, args);
+#if DEBUG_LOGS
+    int tipoLog = 0; // LOG_INFO padrão
+    if (strstr(buffer, "ERRO")) tipoLog = 1; // LOG_ERROR
+    else if (strstr(buffer, "AVISO")) tipoLog = 2; // LOG_WARN
+    printf("[%s] %s\n", (tipoLog == 1) ? "ERRO" : (tipoLog == 2) ? "AVISO" : "INFO", buffer);
+    int slotLivre = -1;
+    for (int i = 0; i < MAX_LOGS; i++) {
+        if (!sistemaLog.logs[i].exibir) { slotLivre = i; break; }
+    }
+    if (slotLivre == -1) {
+        slotLivre = sistemaLog.currentLog;
+        sistemaLog.currentLog = (sistemaLog.currentLog + 1) % MAX_LOGS;
+    }
+    strncpy(sistemaLog.logs[slotLivre].mensagem, buffer, sizeof(sistemaLog.logs[slotLivre].mensagem) - 1);
+    sistemaLog.logs[slotLivre].mensagem[sizeof(sistemaLog.logs[slotLivre].mensagem) - 1] = '\0';
+    sistemaLog.logs[slotLivre].exibir = true;
+    sistemaLog.logs[slotLivre].tempo = 5.0f;
+    sistemaLog.logs[slotLivre].posY = 150;
+    sistemaLog.logs[slotLivre].tipo = tipoLog;
+    sistemaLog.ativo = true;
+    printf("[CHARADA LOG] %s\n", buffer);
+#endif
+    va_end(args);
+}
+
 #if HAS_CURL
 static const char* GEMINI_API_KEY = "AIzaSyCFJL-R1U7Gy9UOy2VcAEt_diTANXM4oIw";
 #endif
@@ -394,6 +429,9 @@ bool gerarCharadaGemini(int fase, char* pergunta, char* respostaCorreta, char* a
 
 // Inicializar sistema de charadas
 void inicializarSistemaCharadas(void) {
+    // Inicializar a lista encadeada de charadas
+    inicializarListaCharadas(&listaCharadas);
+    
     // Carregar textura de fundo com cor sólida (em vez de gradiente)
     Image img = GenImageColor(GetScreenWidth(), GetScreenHeight(), 
                             (Color){20, 10, 40, 255});
@@ -426,6 +464,9 @@ void inicializarSistemaCharadas(void) {
 
 // Liberar recursos
 void liberarRecursosCharada(void) {
+    // Liberar memória da lista encadeada de charadas
+    liberarListaCharadas(&listaCharadas);
+    
     UnloadTexture(fundoCharada);
 #if HAS_CURL
     curl_global_cleanup();
@@ -689,6 +730,47 @@ void gerarNovaCharada(int fase) {
     charadaAtual.acertou = false;
     charadaAtual.faseAlvo = fase;
     charadaAtual.tentativaAtual[0] = '\0';
+    
+    // Verificar se já temos charadas na lista para esta fase
+    bool charadaEncontrada = false;
+    int tamanhoLista = 0;
+    
+    // Contamos o número de charadas na lista
+    NodoCharada* atual = listaCharadas.inicio;
+    while (atual != NULL) {
+        if (atual->charada.faseAlvo == fase) {
+            tamanhoLista++;
+        }
+        atual = atual->proximo;
+    }
+    
+    // Se temos pelo menos uma charada armazenada para esta fase, temos 50% de chance de reutilizá-la
+    if (tamanhoLista > 0 && GetRandomValue(0, 1) == 0) {
+        // Selecionar uma charada aleatória da lista
+        int indiceAleatorio = GetRandomValue(0, tamanhoLista - 1);
+        int contador = 0;
+        
+        atual = listaCharadas.inicio;
+        while (atual != NULL) {
+            if (atual->charada.faseAlvo == fase) {
+                if (contador == indiceAleatorio) {
+                    // Encontramos a charada, copiar para charadaAtual
+                    charadaAtual = atual->charada;
+                    charadaAtual.tentativasRestantes = 3; // Resetar tentativas
+                    charadaAtual.respondida = false;
+                    charadaAtual.acertou = false;
+                    charadaAtual.tentativaAtual[0] = '\0';
+                    charadaEncontrada = true;
+                    break;
+                }
+                contador++;
+            }
+            atual = atual->proximo;
+        }
+    }
+    
+    // Se não encontramos ou decidimos não reutilizar, geramos uma nova
+    if (!charadaEncontrada) {
 
 #if HAS_CURL
     // Tentar gerar uma charada usando a API Gemini
@@ -805,9 +887,7 @@ void gerarNovaCharada(int fase) {
     charadaAtual.alternativas[1][sizeof(charadaAtual.alternativas[1]) - 1] = '\0';
     
     strncpy(charadaAtual.alternativas[2], charadas[indice][3], sizeof(charadaAtual.alternativas[2]) - 1);
-    charadaAtual.alternativas[2][sizeof(charadaAtual.alternativas[2]) - 1] = '\0';
-
-    // Embaralhar alternativas
+    charadaAtual.alternativas[2][sizeof(charadaAtual.alternativas[2]) - 1] = '\0';    // Embaralhar alternativas
     for (int i = 0; i < 3; i++) {
         int j = GetRandomValue(0, 2);
         char temp[64] = {0};
@@ -817,24 +897,35 @@ void gerarNovaCharada(int fase) {
         strncpy(charadaAtual.alternativas[j], temp, sizeof(charadaAtual.alternativas[j]) - 1);
         charadaAtual.alternativas[j][sizeof(charadaAtual.alternativas[j]) - 1] = '\0';
     }
+    
+    // Adicionar a charada à lista encadeada se ela foi gerada pela primeira vez
+    if (!charadaEncontrada) {
+        inserirCharada(&listaCharadas, charadaAtual);
+        registrarLog("INFO: Nova charada adicionada à lista para a fase %d", fase);
+    }
 }
 
-// Declaração da função registrarLog
+// Implementação da função registrarLog
 void registrarLog(const char* formato, ...) {
-#if DEBUG_LOGS
     va_list args;
     va_start(args, formato);
     
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), formato, args);
     
+#if DEBUG_LOGS
     // Configurar o tipo de log com base no conteúdo da mensagem
-    int tipoLog = LOG_INFO;
+    int tipoLog = 0; // LOG_INFO padrão
     if (strstr(buffer, "ERRO")) {
-        tipoLog = LOG_ERROR;
+        tipoLog = 1; // LOG_ERROR
     } else if (strstr(buffer, "AVISO")) {
-        tipoLog = LOG_WARN;
+        tipoLog = 2; // LOG_WARN
     }
+    
+    // Imprimir a mensagem de log
+    printf("[%s] %s\n", 
+           (tipoLog == 1) ? "ERRO" : (tipoLog == 2) ? "AVISO" : "INFO",
+           buffer);
     
     // Adicionar ao sistema de logs (buscar um slot livre)
     int slotLivre = -1;
@@ -852,8 +943,8 @@ void registrarLog(const char* formato, ...) {
     }
     
     // Guardar mensagem no log
-    strncpy(sistemaLog.logs[slotLivre].mensagem, buffer, sizeof(sistemaLog.logs[slotLivre].mensagem)-1);
-    sistemaLog.logs[slotLivre].mensagem[sizeof(sistemaLog.logs[slotLivre].mensagem)-1] = '\0';
+    strncpy(sistemaLog.logs[slotLivre].mensagem, buffer, sizeof(sistemaLog.logs[slotLivre].mensagem) - 1);
+    sistemaLog.logs[slotLivre].mensagem[sizeof(sistemaLog.logs[slotLivre].mensagem) - 1] = '\0';
     sistemaLog.logs[slotLivre].exibir = true;
     sistemaLog.logs[slotLivre].tempo = 5.0f; // Exibir por 5 segundos
     sistemaLog.logs[slotLivre].posY = 150;
@@ -862,10 +953,10 @@ void registrarLog(const char* formato, ...) {
     
     // Também registrar no console para debug
     printf("[CHARADA LOG] %s\n", buffer);
-    
-    va_end(args);
 #endif
+    va_end(args);
 }
+
 
 void processarRespostaAPI(const char* resposta) {
     struct json_object *parsed_json, *candidates, *content, *parts, *text;
@@ -920,6 +1011,7 @@ fallback:
     registrarLog("[CHARADA LOG] AVISO: Usando charadas pré-definidas como fallback");
     registrarLog("Charada fallback: Qual é o caminho mais curto em um labirinto? | resposta1 | resposta2 | resposta3");
     if (parsed_json) json_object_put(parsed_json); // Liberar memória
+}
 }
 
 // Função auxiliar para desenhar texto com word wrap centralizado em um retângulo

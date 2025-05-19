@@ -1,11 +1,19 @@
 #include "boss.h"
+#include "estruturas.h"  // Incluir para ArvoreBosses
 #include <raylib.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 #define TOTAL_FASES 4
-static Texture2D bossTextures[TOTAL_FASES];  // uma textura por fase
+
+extern Boss bosses[MAX_BOSSES];
+
+// Árvore binária de bosses
+ArvoreBosses arvoreBosses;
+
+// Array de texturas para os bosses
+static Texture2D bossTextures[4] = {0};
 
 static const char* nomesBosses[] = {
     "Memória Dolorosa",
@@ -21,6 +29,9 @@ static const char* descricoesBosses[] = {
 };
 
 void inicializarBosses(void) {
+    // Inicializar a árvore de bosses
+    inicializarArvoreBosses(&arvoreBosses);
+    
     // Carrega as sprites dos bosses (uma por fase)
     bossTextures[0] = LoadTexture("recursos/Sprites/sans1_sheet.png");
     bossTextures[1] = LoadTexture("recursos/Sprites/sans2_sheet.png");
@@ -59,14 +70,15 @@ void inicializarBosses(void) {
         bosses[i].tempoFrame = 0.0f;
 
         strcpy(bosses[i].nome,      nomesBosses[faseIndex]);
-        strcpy(bosses[i].descricao, descricoesBosses[faseIndex]);
-
-        for (int j = 0; j < MAX_PROJETEIS; j++) {
+        strcpy(bosses[i].descricao, descricoesBosses[faseIndex]);        for (int j = 0; j < MAX_PROJETEIS; j++) {
             bosses[i].projeteis[j].ativo     = false;
             bosses[i].projeteis[j].usaSprite = false;
             bosses[i].projeteis[j].rotacao   = 0.0f;
             bosses[i].projeteis[j].escala    = 1.0f;
         }
+        
+        // Adicionar o boss à árvore
+        inserirBoss(&arvoreBosses, bosses[i]);
     }
 
     printf("Bosses inicializados com sucesso!\n");
