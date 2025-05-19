@@ -150,11 +150,6 @@ O jogo utiliza a biblioteca Raylib para renderização gráfica, oferecendo uma 
 
 3. Execute o jogo:
    ```
-   ./heart
-   ```
-
-4. Alternativamente, use o Makefile incluído no projeto:
-   ```
    make
    ./heart
    ```
