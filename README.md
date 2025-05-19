@@ -1,23 +1,44 @@
 # 💜 HEART! 💜
 
-Um jogo de ação e estratégia desenvolvido em C com a biblioteca Raylib, utilizando estruturas de dados avançadas e integração com IA.
+## 📋 Requisitos da Atividade
+
+Para o desenvolvimento deste projeto, foram seguidos os seguintes requisitos obrigatórios:
+
+- O programa foi desenvolvido integralmente em linguagem **C**.
+- O jogo apresenta um **menu de opções interativas** para o usuário.
+- Utiliza **estruturas de dados avançadas** (lista circular, pilha e lista encadeada) que fazem parte da lógica central do jogo, não apenas para armazenamento, mas para o funcionamento dinâmico dos obstáculos, pontuação e efeitos visuais.
+- Implementa **(ao menos) um algoritmo de ordenação** apresentado em sala de aula (Bubble Sort), aplicado diretamente ao ranking de pontuações.
+- Realiza **integração com uma API de Inteligência Artificial** (API Gemini do Google), de modo que as mensagens geradas influenciam diretamente a narrativa e atmosfera do jogo.
+- Utiliza **(ao menos) 5 funções** que envolvem as estruturas de dados adotadas, como:
+  - `inicializarFilaObstaculos`
+  - `enfileirarObstaculo`
+  - `desenfileirarObstaculo`
+  - `percorrerObstaculos`
+  - `inicializarPilhaNumerosDano`
+  - `empilharNumeroDano`
+  - `desempilharNumeroDano`
+  - `ordenarPontuacoesBubbleSort`
+- As principais funções do jogo estão especificadas nas seções de Estruturas de Dados e Algoritmos de Ordenação deste README.
+- **Interface gráfica**: Embora não obrigatória, foi implementada utilizando a biblioteca Raylib, garantindo um bônus de +0,5 pt na média do MOD02.
+
+---
 
 ## 📝 Descrição
 
-HEART é um jogo desenvolvido para a disciplina de Análise e Estrutura de Dados, onde o jogador controla um coração que deve navegar por um campo de obstáculos, enfrentar chefes e responder charadas geradas por Inteligência Artificial para progredir. O jogo implementa diversas estruturas de dados como listas duplamente encadeadas, listas circulares e pilhas, demonstrando aplicações práticas desses conceitos em um ambiente interativo.
+HEART é um jogo desenvolvido para a disciplina de Análise e Estrutura de Dados, onde o jogador controla um coração que deve navegar por um campo de obstáculos, enfrentar chefes e receber mensagens geradas por Inteligência Artificial para progredir. O jogo implementa diversas estruturas de dados como listas circulares e pilhas, demonstrando aplicações práticas desses conceitos em um ambiente interativo.
 
 ### Público Alvo
 Estudantes de ciência da computação, entusiastas de programação e jogadores casuais interessados em ver como estruturas de dados e algoritmos podem ser aplicados em um jogo real.
 
 ### Narrativa
-Em um mundo onde a luz se apagou, você é a última centelha de um coração que já foi cheio de vida. Preso em uma dimensão entre o vazio e a esperança, você enfrenta os ecos sombrios dos medos e arrependimentos de uma alma perdida. Cada obstáculo superado e cada charada resolvida é uma luta para recuperar fragmentos de sentimentos e memórias esquecidas.
+Em um mundo onde a luz se apagou, você é a última centelha de um coração que já foi cheio de vida. Preso em uma dimensão entre o vazio e a esperança, você enfrenta os ecos sombrios dos medos e arrependimentos de uma alma perdida. Cada obstáculo superado é uma luta para recuperar fragmentos de sentimentos e memórias esquecidas. Mensagens poéticas e sombrias, geradas por IA, surgem durante a jornada, aprofundando a atmosfera do jogo.
 
 ## 🎮 Mecânicas Principais
 
-- **Movimentação**: Contr ole preciso do coração com as teclas WASD em uma área de jogo delimitada.
+- **Movimentação**: Controle preciso do coração com as teclas WASD em uma área de jogo delimitada.
 - **Obstáculos Dinâmicos**: 
 - **Obstáculos Brancos**: Gerenciados por uma lista circular, causam dano ao coração em caso de colisão.
-- **Gemini API**: Mensagens positivas geradas por IA.
+- **Gemini API**: Mensagens poéticas e reflexivas geradas automaticamente por IA, exibidas durante a narrativa.
 - **Sistema de Chefes**: Batalhas contra chefes com padrões de ataque únicos ao final de cada fase.
 - **Sistema de Pontuação**: Registra e classifica as pontuações usando algoritmo Bubble Sort.
 
@@ -25,61 +46,98 @@ Em um mundo onde a luz se apagou, você é a última centelha de um coração qu
 
 O jogo possui três fases com dificuldade crescente:
 1. **Fase 1**: Introdução aos obstáculos básicos e mecânicas de movimento.
-2. **Fase 2**: Aumento na velocidade e quantidade de obstáculos, introdução de charadas mais complexas.
+2. **Fase 2**: Aumento na velocidade e quantidade de obstáculos.
 3. **Fase 3**: Desafio máximo com obstáculos que perseguem o jogador e chefe final.
 
-## 🧠 Estruturas de Dados Implementadas
+## 🧠 Estruturas de Dados Utilizadas
 
-### Lista Duplamente Encadeada
-Implementada para gerenciar as charadas do jogo, permitindo navegação bidirecional entre os elementos. Cada nó contém uma charada e ponteiros para os nós anterior e próximo, facilitando a busca e manipulação dos desafios apresentados ao jogador.
+O projeto HEART utiliza diversas estruturas de dados clássicas, cada uma aplicada diretamente à lógica central do jogo. Veja abaixo as principais estruturas, onde são usadas e seus códigos de referência:
 
-```c
-typedef struct NodoCharada {
-    Charada charada;
-    struct NodoCharada* proximo;
-    struct NodoCharada* anterior; // Ponteiro para o nó anterior
-} NodoCharada;
-```
+### 1. Lista Circular de Obstáculos
+- **Arquivo:** `estruturas.h` / `estruturas.c`
+- **Código:**
+  ```c
+  typedef struct NodoObstaculo {
+      Obstaculo obstaculo;
+      struct NodoObstaculo* proximo;
+  } NodoObstaculo;
 
-**Funções implementadas**: `inicializarListaCharadas`, `listaCharadasVazia`, `inserirCharada`, `removerCharada`, `liberarListaCharadas`, `buscarCharada`
+  typedef struct {
+      NodoObstaculo* ultimo;
+      int tamanho;
+  } FilaObstaculos;
+  ```
+- **Funções:** `inicializarFilaObstaculos`, `enfileirarObstaculo`, `desenfileirarObstaculo`, `percorrerObstaculos`
+- **Uso:** Gerenciamento dinâmico dos obstáculos brancos na área de jogo.
 
-### Lista Circular
-Utilizada para gerenciar os obstáculos no jogo, criando um fluxo contínuo e eficiente. A estrutura permite que o último elemento aponte para o primeiro, formando um ciclo, ideal para processar elementos de forma cíclica.
+### 2. Pilha de Números de Dano
+- **Arquivo:** `estruturas.h` / `estruturas.c`
+- **Código:**
+  ```c
+  typedef struct {
+      NumeroDano itens[MAX_NUMEROS_DANO];
+      int topo;
+  } PilhaNumerosDano;
+  ```
+- **Funções:** `inicializarPilhaNumerosDano`, `empilharNumeroDano`, `desempilharNumeroDano`, `pilhaNumerosDanoCheia`, `pilhaNumerosDanoVazia`
+- **Uso:** Exibição e controle dos números de dano que aparecem sobre o coração ao ser atingido.
 
-```c
-typedef struct NodoObstaculo {
-    Obstaculo obstaculo;
-    struct NodoObstaculo* proximo;
-} NodoObstaculo;
+### 3. Lista Duplamente Encadeada de Mensagens
+- **Arquivo:** `estruturas.h` / `estruturas.c`
+- **Código:**
+  ```c
+  typedef struct NodoMensagem {
+      MensagemConforto mensagem;
+      struct NodoMensagem* proximo;
+      struct NodoMensagem* anterior;
+  } NodoMensagem;
 
-typedef struct {
-    NodoObstaculo* ultimo;  // Aponta para o último nó, cujo próximo é o primeiro
-    int tamanho;
-} FilaObstaculos;
-```
+  typedef struct {
+      NodoMensagem* inicio;
+      NodoMensagem* fim;
+      int tamanho;
+  } ListaMensagens;
+  ```
+- **Funções:** `inicializarListaMensagens`, `inserirMensagem`, `removerMensagem`, `liberarListaMensagens`, `buscarMensagem`
+- **Uso:** Gerenciamento das mensagens atmosféricas/poéticas exibidas durante o jogo.
 
-**Funções implementadas**: `inicializarFilaObstaculos`, `filaObstaculosVazia`, `enfileirarObstaculo`, `desenfileirarObstaculo`, `percorrerObstaculos`
+### 4. Árvore Binária de Bosses
+- **Arquivo:** `estruturas.h` / `estruturas.c`
+- **Código:**
+  ```c
+  typedef struct NodoArvore {
+      Boss boss;
+      struct NodoArvore* esquerda;
+      struct NodoArvore* direita;
+  } NodoArvore;
 
-### Pilha
-Implementada para gerenciar os números de dano que aparecem quando o jogador é atingido, seguindo o princípio LIFO (Last In, First Out). Garante que os números mais recentes sejam processados primeiro, criando um efeito visual de sobreposição.
+  typedef struct {
+      NodoArvore* raiz;
+  } ArvoreBosses;
+  ```
+- **Funções:** `inicializarArvoreBosses`, `inserirBoss`, `buscarBoss`, `liberarArvoreBosses`, `percorrerEmOrdem`
+- **Uso:** Organização e progressão dos chefes (bosses) do jogo por fase.
 
-```c
-typedef struct {
-    NumeroDano itens[MAX_NUMEROS_DANO];
-    int topo;
-} PilhaNumerosDano;
-```
+### 5. Lista Encadeada de Pontuações
+- **Arquivo:** `pontuacao.h` / `pontuacao.c`
+- **Código:**
+  ```c
+  typedef struct NoPontuacao {
+      char nome[50];
+      int pontuacao;
+      struct NoPontuacao* proximo;
+  } NoPontuacao;
 
-**Funções implementadas**: `inicializarPilhaNumerosDano`, `pilhaNumerosDanoCheia`, `pilhaNumerosDanoVazia`, `empilharNumeroDano`, `desempilharNumeroDano`
+  typedef struct ListaPontuacao {
+      NoPontuacao* cabeca;
+      int maiorPontuacao;
+      char nomeMaiorPontuacao[50];
+  } ListaPontuacao;
+  ```
+- **Funções:** `inicializarListaPontuacao`, `adicionarPontuacao`, `ordenarPontuacoesBubbleSort`, `salvarPontuacoes`, `carregarPontuacoes`, `liberarListaPontuacao`
+- **Uso:** Armazenamento, ordenação e exibição do ranking de jogadores.
 
 ## 🔄 Algoritmos de Ordenação
-
-### Lista Encadeada
-Utilizada para armazenar e gerenciar as pontuações dos jogadores no ranking.
-
-**Justificativa**: A lista encadeada foi escolhida por sua flexibilidade na inserção e remoção de elementos, permitindo um gerenciamento eficiente das pontuações sem necessidade de realocação de memória, como seria o caso em um array.
-
-## 🔄 Algoritmo de Ordenação
 
 ### Bubble Sort
 Implementado na função `ordenarPontuacoesBubbleSort()` no arquivo `pontuacao.c`, este algoritmo é utilizado para ordenar as pontuações no ranking em ordem decrescente (da maior para a menor).
@@ -145,6 +203,7 @@ O jogo utiliza a biblioteca Raylib para renderização gráfica, oferecendo uma 
    ```bash
    sudo apt update
    sudo apt install libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libcurl4-openssl-dev libjson-c-dev build-essential
+   ```
 
 3. Execute o jogo:
    ```
