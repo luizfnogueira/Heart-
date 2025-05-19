@@ -59,6 +59,10 @@ Texture2D texturaOssoReto;
 Texture2D texturaOssoHorizontal;
 float tempoInvulnerabilidade = 0.0f;
 
+// Controle de mensagem de conforto IA por fase
+int mensagemConfortoAtiva = 0;
+double tempoMensagemConforto = 0.0;
+
 // Corrigido: variáveis de tempo de onda/obstáculo
 static float tempoUltimaOnda = 0.0f;
 static float tempoUltimoObstaculo = 0.0f;
@@ -543,37 +547,32 @@ bool atualizarJogo(void) {
         if (tempoMensagemLore <= 0) {
             mostrarMensagemLore = 0;
         }
-        return true;
+        // Não retorna aqui! Permita que a mensagem de conforto também seja exibida
+        // return true;  // <-- Remova este return!
     }
 
     // Troca de fase: buscar mensagem de conforto da IA
     if (pontuacao >= 200 && faseAtual == 1) {
         faseAtual = 2;
-        int idx = GetRandomValue(0, 3);
-        strcpy(mensagemLore, mensagensFase2[idx]);
-        mostrarMensagemLore = 1;
-        tempoMensagemLore = 3.0f;
-        limparObstaculosEPrepararProximaFase();
         // Buscar mensagem de conforto da IA
         strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
         mensagemAtual.ativa = 1;
         atualizarMensagemConforto();
+        mensagemConfortoAtiva = 1;
+        tempoMensagemConforto = GetTime();
         return true;
     }
     if (pontuacao >= 400 && faseAtual == 2) {
         faseAtual = 3;
-        int idx = GetRandomValue(0, 3);
-        strcpy(mensagemLore, mensagensFase3[idx]);
-        mostrarMensagemLore = 1;
-        tempoMensagemLore = 3.0f;
-        limparObstaculosEPrepararProximaFase();
         // Buscar mensagem de conforto da IA
         strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
         mensagemAtual.ativa = 1;
         atualizarMensagemConforto();
+        mensagemConfortoAtiva = 1;
+        tempoMensagemConforto = GetTime();
         return true;
     }
-    if (pontuacao >= 2000 && faseAtual == 3) {
+    if (pontuacao >= 600 && faseAtual == 3) {
         int idx = GetRandomValue(0, 3);
         strcpy(mensagemLore, mensagensVitoria[idx]);
         mostrarMensagemLore = 1;
@@ -582,6 +581,8 @@ bool atualizarJogo(void) {
         strcpy(mensagemAtual.mensagem, "Carregando mensagem de conforto...");
         mensagemAtual.ativa = 1;
         atualizarMensagemConforto();
+        mensagemConfortoAtiva = 1;
+        tempoMensagemConforto = GetTime();
         return false; // Fim do jogo
     }
 
@@ -648,6 +649,14 @@ bool atualizarJogo(void) {
     // ... resto da função ...
     if (IsKeyPressed(KEY_F2)) {
         efeitosVisuaisAvancados = !efeitosVisuaisAvancados;
+    }
+
+    // Desativa mensagem de conforto após 3 segundos
+    if (mensagemConfortoAtiva && mensagemAtual.ativa) {
+        if (GetTime() - tempoMensagemConforto > 3.0) {
+            mensagemAtual.ativa = 0;
+            mensagemConfortoAtiva = 0;
+        }
     }
 
     return true;
