@@ -1,41 +1,78 @@
 # 💜 HEART! 💜
 
-Uma reimplementação do jogo Heart utilizando a biblioteca Raylib e estruturas de dados avançadas.
+Um jogo de ação e estratégia desenvolvido em C com a biblioteca Raylib, utilizando estruturas de dados avançadas e integração com IA.
 
 ## 📝 Descrição
 
-Este projeto é uma reimplementação do jogo Heart original, desenvolvido para a disciplina de Análise e Estrutura de Dados. O jogo consiste em controlar um coração que deve desviar de obstáculos para sobreviver, responder charadas geradas por IA e enfrentar desafios crescentes.
+HEART é um jogo desenvolvido para a disciplina de Análise e Estrutura de Dados, onde o jogador controla um coração que deve navegar por um campo de obstáculos, enfrentar chefes e responder charadas geradas por Inteligência Artificial para progredir. O jogo implementa diversas estruturas de dados como listas duplamente encadeadas, listas circulares e pilhas, demonstrando aplicações práticas desses conceitos em um ambiente interativo.
 
 ### Público Alvo
-Estudantes e entusiastas de jogos que apreciam desafios de desviar de obstáculos com mecânicas simples mas envolventes, além de pessoas interessadas em ver aplicações práticas de estruturas de dados e integração com IA.
+Estudantes de ciência da computação, entusiastas de programação e jogadores casuais interessados em ver como estruturas de dados e algoritmos podem ser aplicados em um jogo real.
 
 ### Narrativa
-Em um mundo onde a luz se apagou, você é a última centelha de um coração que já foi cheio de vida. Preso em uma dimensão entre o vazio e a esperança, você enfrenta os ecos sombrios dos medos e arrependimentos de uma alma perdida. Cada obstáculo superado é uma luta para recuperar fragmentos de sentimentos e memórias esquecidas.
+Em um mundo onde a luz se apagou, você é a última centelha de um coração que já foi cheio de vida. Preso em uma dimensão entre o vazio e a esperança, você enfrenta os ecos sombrios dos medos e arrependimentos de uma alma perdida. Cada obstáculo superado e cada charada resolvida é uma luta para recuperar fragmentos de sentimentos e memórias esquecidas.
 
-## 🎮 Como Jogar
+## 🎮 Mecânicas Principais
 
-- **Movimentação**: Utilize as teclas W, A, S, D para mover o coração.
-- **Obstáculos**:
-  - **Obstáculos Brancos**: Desvie a todo custo! Colidir com eles causa dano ao coração.
-  - **Obstáculos Roxos**: Podem ser atravessados sem dano, mas apenas se você permanecer imóvel ao passar por eles.
-  - **Obstáculos Amarelos**: Colete-os para recuperar vida.
-- **Charadas**: Responda corretamente às charadas geradas pela IA para avançar no jogo e ganhar bônus.
-- **Chefes**: Enfrente chefes desafiadores ao final de cada fase.
+- **Movimentação**: Contr ole preciso do coração com as teclas WASD em uma área de jogo delimitada.
+- **Obstáculos Dinâmicos**: 
+  - **Obstáculos Brancos**: Gerenciados por uma lista circular, causam dano ao coração em caso de colisão.
+- **Charadas**: Desafios gerados pela API Gemini do Google, armazenados em uma lista duplamente encadeada.
+- **Sistema de Chefes**: Batalhas contra chefes com padrões de ataque únicos ao final de cada fase.
+- **Sistema de Pontuação**: Registra e classifica as pontuações usando algoritmo Bubble Sort.
 
-## 🎯 Objetivo
+## 🎯 Progresso do Jogo
 
-O objetivo do jogo é sobreviver o máximo possível, acumulando pontos e avançando pelas três fases do jogo até derrotar o chefe final e restaurar completamente o coração.
+O jogo possui três fases com dificuldade crescente:
+1. **Fase 1**: Introdução aos obstáculos básicos e mecânicas de movimento.
+2. **Fase 2**: Aumento na velocidade e quantidade de obstáculos, introdução de charadas mais complexas.
+3. **Fase 3**: Desafio máximo com obstáculos que perseguem o jogador e chefe final.
 
 ## 🧠 Estruturas de Dados Implementadas
 
 ### Lista Duplamente Encadeada
-Utilizada para armazenar e gerenciar as charadas do jogo. A estrutura permite navegação bidirecional entre as charadas, facilitando a busca e manipulação dos desafios apresentados ao jogador.
+Implementada para gerenciar as charadas do jogo, permitindo navegação bidirecional entre os elementos. Cada nó contém uma charada e ponteiros para os nós anterior e próximo, facilitando a busca e manipulação dos desafios apresentados ao jogador.
+
+```c
+typedef struct NodoCharada {
+    Charada charada;
+    struct NodoCharada* proximo;
+    struct NodoCharada* anterior; // Ponteiro para o nó anterior
+} NodoCharada;
+```
+
+**Funções implementadas**: `inicializarListaCharadas`, `listaCharadasVazia`, `inserirCharada`, `removerCharada`, `liberarListaCharadas`, `buscarCharada`
 
 ### Lista Circular
-Implementada para gerenciar os obstáculos no jogo. A natureza circular da estrutura permite um fluxo contínuo de obstáculos, facilitando a criação de padrões cíclicos e a reutilização eficiente de elementos.
+Utilizada para gerenciar os obstáculos no jogo, criando um fluxo contínuo e eficiente. A estrutura permite que o último elemento aponte para o primeiro, formando um ciclo, ideal para processar elementos de forma cíclica.
+
+```c
+typedef struct NodoObstaculo {
+    Obstaculo obstaculo;
+    struct NodoObstaculo* proximo;
+} NodoObstaculo;
+
+typedef struct {
+    NodoObstaculo* ultimo;  // Aponta para o último nó, cujo próximo é o primeiro
+    int tamanho;
+} FilaObstaculos;
+```
+
+**Funções implementadas**: `inicializarFilaObstaculos`, `filaObstaculosVazia`, `enfileirarObstaculo`, `desenfileirarObstaculo`, `percorrerObstaculos`
 
 ### Pilha
-Usada para controlar os números de dano que aparecem quando o jogador é atingido. A estrutura LIFO (Last In, First Out) garante que os números mais recentes sejam processados primeiro, criando um efeito visual de sobreposição.
+Implementada para gerenciar os números de dano que aparecem quando o jogador é atingido, seguindo o princípio LIFO (Last In, First Out). Garante que os números mais recentes sejam processados primeiro, criando um efeito visual de sobreposição.
+
+```c
+typedef struct {
+    NumeroDano itens[MAX_NUMEROS_DANO];
+    int topo;
+} PilhaNumerosDano;
+```
+
+**Funções implementadas**: `inicializarPilhaNumerosDano`, `pilhaNumerosDanoCheia`, `pilhaNumerosDanoVazia`, `empilharNumeroDano`, `desempilharNumeroDano`
+
+## 🔄 Algoritmos de Ordenação
 
 ### Lista Encadeada
 Utilizada para armazenar e gerenciar as pontuações dos jogadores no ranking.
@@ -56,16 +93,25 @@ Implementado na função `ordenarPontuacoesBubbleSort()` no arquivo `pontuacao.c
 ## 🤖 Integração com API de Inteligência Artificial
 
 ### API Gemini do Google
-O jogo integra-se com a API Gemini do Google para gerar charadas dinâmicas durante o gameplay. Esta integração é implementada no arquivo `charada.c` e permite:
+O jogo integra-se com a API Gemini do Google para gerar charadas dinâmicas durante o gameplay. Esta integração é implementada no arquivo `charada.c` e representa um componente central da experiência de jogo:
 
+```c
+bool gerarCharadaGemini(int fase, char* pergunta, char* respostaCorreta, char* alternativa1, char* alternativa2) {
+    // Código para gerar charadas usando a API Gemini
+}
+```
+
+**Funcionalidades implementadas**:
 - Geração de charadas personalizadas com base na fase atual do jogo
 - Criação de alternativas de resposta para cada charada
 - Adaptação do nível de dificuldade das charadas conforme o progresso do jogador
+- Processamento de respostas JSON complexas da API
+- Sistema de fallback para charadas pré-definidas em caso de falha na API
 
 A implementação utiliza a biblioteca libcurl para fazer requisições HTTP à API e a biblioteca json-c para processar as respostas JSON recebidas. As charadas geradas pela IA são armazenadas na lista duplamente encadeada para uso durante o jogo.
 
 ### IA para Comportamento de Inimigos
-Além disso, na fase final do jogo, os obstáculos utilizam um algoritmo de perseguição ao jogador, ajustando sua trajetória com base na posição do coração. Esta implementação demonstra conceitos básicos de inteligência artificial em jogos.
+Na fase final do jogo, os obstáculos e chefes utilizam algoritmos de IA para perseguir o jogador, implementados no arquivo `boss.c`. Os padrões de movimento são calculados dinamicamente com base na posição do coração, criando uma experiência desafiadora e adaptativa.
 
 ## 🛠️ Funcionalidades Principais
 
