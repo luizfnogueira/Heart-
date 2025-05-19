@@ -93,25 +93,23 @@ Implementado na função `ordenarPontuacoesBubbleSort()` no arquivo `pontuacao.c
 ## 🤖 Integração com API de Inteligência Artificial
 
 ### API Gemini do Google
-O jogo integra-se com a API Gemini do Google para gerar charadas dinâmicas durante o gameplay. Esta integração é implementada no arquivo `charada.c` e representa um componente central da experiência de jogo:
 
-```c
-bool gerarCharadaGemini(int fase, char* pergunta, char* respostaCorreta, char* alternativa1, char* alternativa2) {
-    // Código para gerar charadas usando a API Gemini
-}
-```
+O jogo integra-se com a **API Gemini do Google** para gerar **mensagens automáticas** durante a jogabilidade. Estas mensagens possuem um caráter **poético, sombrio e reflexivo**, sendo exibidas de forma dinâmica em momentos específicos da narrativa, contribuindo para a imersão do jogador no universo do jogo.
 
-**Funcionalidades implementadas**:
-- Geração de charadas personalizadas com base na fase atual do jogo
-- Criação de alternativas de resposta para cada charada
-- Adaptação do nível de dificuldade das charadas conforme o progresso do jogador
-- Processamento de respostas JSON complexas da API
-- Sistema de fallback para charadas pré-definidas em caso de falha na API
+A integração com a IA é implementada no arquivo `gemini.c`, que:
 
-A implementação utiliza a biblioteca libcurl para fazer requisições HTTP à API e a biblioteca json-c para processar as respostas JSON recebidas. As charadas geradas pela IA são armazenadas na lista duplamente encadeada para uso durante o jogo.
+- Realiza requisições HTTP usando a biblioteca `libcurl`
+- Processa respostas JSON com a biblioteca `json-c`
+- Exibe os textos gerados por IA diretamente na interface gráfica utilizando `raylib`
 
-### IA para Comportamento de Inimigos
-Na fase final do jogo, os obstáculos e chefes utilizam algoritmos de IA para perseguir o jogador, implementados no arquivo `boss.c`. Os padrões de movimento são calculados dinamicamente com base na posição do coração, criando uma experiência desafiadora e adaptativa.
+As mensagens geradas não dependem da interação do jogador e não funcionam como charadas ou perguntas. Elas compõem a atmosfera do jogo, funcionando como elementos narrativos automáticos — sem múltiplas escolhas, tentativas ou respostas.
+
+### Finalidade da IA no Jogo
+
+- Geração de mensagens sombrias e emocionais durante o jogo
+- Integração transparente com a narrativa de cada fase
+- Substituição total da antiga lógica de charadas interativas
+- Experiência mais imersiva e cinematográfica
 
 ## 🛠️ Funcionalidades Principais
 
