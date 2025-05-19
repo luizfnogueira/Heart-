@@ -137,15 +137,16 @@ O jogo utiliza a biblioteca Raylib para renderização gráfica, oferecendo uma 
 
 ## 🔧 Compilação e Execução
 
-1. Certifique-se de ter as bibliotecas necessárias instaladas:
-   - Raylib (para a interface gráfica)
-   - libcurl (para integração com API)
-   - json-c (para processamento de JSON)
+1. Certifique-se de ter as bibliotecas necessárias instaladas no sistema:
+   - **Raylib** (para a interface gráfica)
+   - **libcurl** (para integração com API)
+   - **json-c** (para processamento de JSON)
 
-2. Compile o projeto usando:
-   ```
-   gcc -Wall -std=c99 -I./raylib/src main.c menu.c jogo.c pontuacao.c boss.c charada.c estruturas.c algoritmos.c -o heart ./raylib/src/libraylib.a -lGL -lm -lpthread -ldl -lrt -lX11 -lcurl -ljson-c
-   ```
+   No Ubuntu ou WSL (Windows Subsystem for Linux), instale com:
+
+   ```bash
+   sudo apt update
+   sudo apt install libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libcurl4-openssl-dev libjson-c-dev build-essential
 
 3. Execute o jogo:
    ```
