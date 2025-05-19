@@ -27,7 +27,7 @@ CFLAGS = -Wall -std=c99 -I./raylib/src
 
 # Regra padrão
 all:
-	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)$(EXT) ./raylib/src/libraylib.a $(LIBS)
+	$(CC) -Wall -std=c99 $(SRCS) -o $(TARGET)$(EXT) -lraylib $(LIBS)
 
 # Limpeza de arquivos compilados
 clean:
